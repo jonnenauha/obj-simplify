@@ -217,11 +217,10 @@ func logFileStats() {
 	logInfo(" ")
 	sizeIn, sizeOut := fileSize(StartParams.Input), fileSize(StartParams.Output)
 	logResults("Input file", formatBytes(sizeIn))
-	logResults("Output file", formatBytes(sizeOut))
 	if sizeOut < sizeIn {
-		logResultsPostfix("Diff", formatBytes(sizeOut-sizeIn), "-"+intToString(int(100-computePerc(float64(sizeOut), float64(sizeIn))))+"%%")
+		logResultsPostfix("Output file", formatBytes(sizeOut), fmt.Sprintf("%-10s %s", formatBytes(sizeOut-sizeIn), "-"+intToString(int(100-computePerc(float64(sizeOut), float64(sizeIn))))+"%%"))
 	} else {
-		logResultsPostfix("Diff", formatBytes(sizeOut-sizeIn), "+"+intToString(int(computePerc(float64(sizeOut), float64(sizeIn))-100))+"%%")
+		logResultsPostfix("Output file", formatBytes(sizeOut), fmt.Sprintf("%-10s %s", formatBytes(sizeOut-sizeIn), "+"+intToString(int(computePerc(float64(sizeOut), float64(sizeIn))-100))+"%%"))
 	}
 }
 

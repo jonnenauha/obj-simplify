@@ -69,6 +69,5 @@ Faces                   162 982
 Groups                       88    -532       -86%
  
 Input file             12.52 MB
-Output file            10.00 MB
-Diff                   -2.53 MB    -20%
+Output file            10.00 MB    -2.53 MB   -20%
 ```
