@@ -2,7 +2,7 @@
 
 There are a lot of authoring tools that produce OBJ files. The [spec](http://www.martinreddy.net/gfx/3d/OBJ.spec) is quite simple, but it still leaves a lot of room to export geometry and meshes/material combos that are not always optimal for 3D rendering engines. Artists and the exporters can also omit doing simple cleanup operations that would reduce file sizes, making loading and rendering the model faster.
 
-This tool automates the following processing and simplification steps.
+This tool automates the following optimization and simplification steps.
 
 * Merge duplicate vertex `v`, normal `vn` and UV `vt` declarations.
 * Create objects from "multi-material" face groups.
@@ -10,7 +10,8 @@ This tool automates the following processing and simplification steps.
 * Rewrite geometry declarations.
 * Rewrite `o/g` to use absolute indexing and the deduplicated geometry.
 
-This tool can be destructive, the implementation does not support all the OBJ features out there. It is meant to be used on 3D-models, although lines `l` and points `p` are preserved. If a particular line is not supported by the parser, the tool will exit and print a link to submit an issue.
+This tool can be destructive and contain bugs, it will not let you overwrite the source file. Keep your original files intact. The implementation does not support all the OBJ features out there. It is meant to be used on 3D-models
+ `l` and points `p`. If a particular line is not supported by the parser, the tool will exit and print a link to submit an issuem. If you are submitting an issue please attach a file that can reproduce the bug.
 
 ## Merging duplicate geometry
 
