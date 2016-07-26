@@ -236,16 +236,19 @@ func (o *Object) ReadVertexData(t Type, value string) (*VertexData, error) {
 	} else if o.parent == nil {
 		return vt, nil
 	}
+
 	// OBJ index references start from 1 not zero.
 	// Negative values are relative from the end of currently
-	// declared geometry. Convert relative values to absolute here.
+	// declared geometry. Convert relative values to absolute.
 	geomStats := o.parent.Geometry.Stats()
+
 	for _, decl := range vt.Declarations() {
 
 		if decl.Vertex != 0 {
 			if decl.Vertex < 0 {
-				decl.Vertex = geomStats.Vertices - (decl.Vertex + 1)
-			} else if decl.Vertex > geomStats.Vertices {
+				decl.Vertex = decl.Vertex + geomStats.Vertices + 1
+			}
+			if decl.Vertex <= 0 || decl.Vertex > geomStats.Vertices {
 				return nil, fmt.Errorf("vertex index %d out of bounds, %d declared so far", decl.Vertex, geomStats.Vertices)
 			}
 			decl.RefVertex = o.parent.Geometry.Vertices[decl.Vertex-1]
@@ -256,8 +259,9 @@ func (o *Object) ReadVertexData(t Type, value string) (*VertexData, error) {
 
 		if decl.UV != 0 {
 			if decl.UV < 0 {
-				decl.UV = geomStats.UVs - (decl.UV + 1)
-			} else if decl.UV > geomStats.UVs {
+				decl.UV = decl.UV + geomStats.UVs + 1
+			}
+			if decl.UV <= 0 || decl.UV > geomStats.UVs {
 				return nil, fmt.Errorf("uv index %d out of bounds, %d declared so far", decl.UV, geomStats.UVs)
 			}
 			decl.RefUV = o.parent.Geometry.UVs[decl.UV-1]
@@ -268,8 +272,9 @@ func (o *Object) ReadVertexData(t Type, value string) (*VertexData, error) {
 
 		if decl.Normal != 0 {
 			if decl.Normal < 0 {
-				decl.Normal = geomStats.Normals - (decl.Normal + 1)
-			} else if decl.Normal > geomStats.Normals {
+				decl.Normal = decl.Normal + geomStats.Normals + 1
+			}
+			if decl.Normal <= 0 || decl.Normal > geomStats.Normals {
 				return nil, fmt.Errorf("normal index %d out of bounds, %d declared so far", decl.Normal, geomStats.Normals)
 			}
 			decl.RefNormal = o.parent.Geometry.Normals[decl.Normal-1]
