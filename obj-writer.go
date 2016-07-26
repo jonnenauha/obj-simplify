@@ -77,6 +77,10 @@ func (wr *Writer) WriteTo(w io.Writer) error {
 	// objects: preserves the parsing order of g/o
 	writeLine(objectfile.Comment, fmt.Sprintf("objects [%d]", len(obj.Objects)), true)
 	for _, child := range obj.Objects {
+		// skip children that do not declare faces etc.
+		if len(child.VertexData) == 0 {
+			continue
+		}
 		writeLine(child.Type, child.Name, false)
 		// we dont skip writing material if it has already been declared as the
 		// last material, the file is easier to read for humans with write on each
