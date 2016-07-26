@@ -25,4 +25,6 @@ _testmain.go
 *.pprof
 
 obj-simplify
+obj-simplify.*
+
 tests

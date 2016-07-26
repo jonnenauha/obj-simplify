@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"runtime"
 	"sort"
 	"strconv"
 	"sync"
@@ -45,8 +44,7 @@ func (r *replacer) Index() int {
 }
 
 func (r *replacer) IsEmpty() bool {
-	empty := r.replaces == nil || len(r.replaces) == 0
-	return empty
+	return r.replaces == nil || len(r.replaces) == 0
 }
 
 func (r *replacer) NumReplaces() int {
@@ -164,63 +162,93 @@ func (processor Duplicates) Desc() string {
 
 func (processor Duplicates) Execute(obj *objectfile.OBJ) error {
 	var (
-		replacements  = make([]*replacerResults, 0)
-		mReplacements = sync.RWMutex{}
-		wg            = &sync.WaitGroup{}
-		preStats      = obj.Geometry.Stats()
-		epsilon       = StartParams.Eplison
-		progress      = make([]*pb.ProgressBar, 0)
-		progressPool  *pb.Pool
-		progressErr   error
+		results         = make(map[objectfile.Type]*replacerResults)
+		mResults        = sync.RWMutex{}
+		wg              = &sync.WaitGroup{}
+		preStats        = obj.Geometry.Stats()
+		epsilon         = StartParams.Eplison
+		progressEnabled = !StartParams.NoProgress
 	)
 
 	logInfo("  - Using epsilon of %s", strconv.FormatFloat(epsilon, 'g', -1, 64))
 
 	// Doing this with channels felt a bit overkill, copying a lot of replacers etc.
 	setResults := func(result *replacerResults) {
-		mReplacements.Lock()
+		mResults.Lock()
 		// If there is no progress bars, report results as they come in so user knows something is happening...
-		if StartParams.NoProgress || progressErr != nil {
+		if !progressEnabled {
 			logInfo("  - %-2s %7d duplicates found for %d unique indexes (%s%%) in %s",
 				result.Type, result.Duplicates(), len(result.Items), computeFloatPerc(float64(result.Duplicates()), float64(preStats.Num(result.Type))), formatDuration(result.Spent))
 		}
-		replacements = append(replacements, result)
-		mReplacements.Unlock()
+		results[result.Type] = result
+		mResults.Unlock()
 	}
 
 	// find duplicated
-	mReplacements.Lock()
-	for _, t := range []objectfile.Type{objectfile.Vertex, objectfile.Normal, objectfile.UV, objectfile.Param} {
-		if slice := obj.Geometry.Get(t); len(slice) > 0 {
-			wg.Add(1)
-			bar := pb.New(len(slice)).Prefix(fmt.Sprintf("  - %-2s", t.String())).SetMaxWidth(130)
-			bar.ShowTimeLeft = false
-			progress = append(progress, bar)
-			go findDuplicates(t, slice, epsilon, wg, bar, setResults)
-		}
-	}
-	if !StartParams.NoProgress {
-		// does not work in liteide shell (windows at least)
-		progressPool, progressErr = pb.StartPool(progress...)
-	}
-	mReplacements.Unlock()
+	{
+		mResults.Lock()
 
-	wg.Wait()
-	if progressErr == nil && progressPool != nil {
-		progressPool.Stop()
+		var (
+			bars         = make(map[objectfile.Type]*pb.ProgressBar)
+			progressPool *pb.Pool
+			progressErr  error
+		)
+		// progress bars
+		if !StartParams.NoProgress {
+			for _, t := range []objectfile.Type{objectfile.Vertex, objectfile.Normal, objectfile.UV, objectfile.Param} {
+				if slice := obj.Geometry.Get(t); len(slice) > 0 {
+					bar := pb.New(len(slice)).Prefix(fmt.Sprintf("  - %-2s scan    ", t.String())).SetMaxWidth(130)
+					bar.ShowTimeLeft = false
+					bars[t] = bar
+				}
+			}
+			barsSlice := make([]*pb.ProgressBar, 0)
+			for _, bar := range bars {
+				barsSlice = append(barsSlice, bar)
+			}
+			if progressPool, progressErr = pb.StartPool(barsSlice...); progressErr != nil {
+				// progress pools do not work in all shells on windows (eg. liteide)
+				bars = make(map[objectfile.Type]*pb.ProgressBar)
+				progressPool = nil
+				progressEnabled = false
+			}
+		}
+		// start goroutines
+		for _, t := range []objectfile.Type{objectfile.Vertex, objectfile.Normal, objectfile.UV, objectfile.Param} {
+			if slice := obj.Geometry.Get(t); len(slice) > 0 {
+				wg.Add(1)
+				go findDuplicates(t, slice, epsilon, wg, bars[t], setResults)
+			}
+		}
+
+		mResults.Unlock()
+
+		wg.Wait()
+
+		if progressPool != nil {
+			progressPool.Stop()
+		}
+		// report totals now in the same order as it would print without progress bars
+		if progressEnabled {
+			mResults.Lock()
+			for _, t := range []objectfile.Type{objectfile.Vertex, objectfile.Normal, objectfile.UV, objectfile.Param} {
+				if result := results[t]; result != nil {
+					logInfo("  - %-2s %7d duplicates found for %d unique indexes (%s%%) in %s",
+						result.Type, result.Duplicates(), len(result.Items), computeFloatPerc(float64(result.Duplicates()), float64(preStats.Num(result.Type))), formatDuration(result.Spent))
+				}
+			}
+			mResults.Unlock()
+		}
 	}
 
 	// Rewrite ptr refs to vertex data that is using an about to be removed duplicate.
 	// Exec in main thread, accessing the vertex data arrays in objects would be
 	// too much contention with a mutex. This operation is fairly fast, no need for parallel exec.
-	for _, result := range replacements {
-		// report log now if progress bars was enabled
-		if !StartParams.NoProgress && progressErr == nil {
-			logInfo("  - %-2s %7d duplicates found for %d unique indexes (%s%%) in %s",
-				result.Type, result.Duplicates(), len(result.Items), computeFloatPerc(float64(result.Duplicates()), float64(preStats.Num(result.Type))), formatDuration(result.Spent))
+	// Sweeps and marks .Discard to replaced values
+	for _, t := range []objectfile.Type{objectfile.Vertex, objectfile.Normal, objectfile.UV, objectfile.Param} {
+		if result := results[t]; result != nil {
+			replaceDuplicates(result.Type, obj, result.Items)
 		}
-		// sweeps and marks .Discard to replaced values
-		replaceDuplicates(result.Type, obj, result.Items)
 	}
 
 	// Rewrite geometry
@@ -286,19 +314,14 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 		subwg.Done()
 	}
 
-	numRoutines := runtime.NumCPU() * 4
-	if numRoutines < 4 {
-		numRoutines = 4
-	}
-	numPerRoutine := len(slice) / numRoutines
-
 	wgInternal := &sync.WaitGroup{}
-	for iter := 0; iter < numRoutines; iter++ {
+	numPerRoutine := len(slice) / StartParams.Workers
+	for iter := 0; iter < StartParams.Workers; iter++ {
 		start := iter * numPerRoutine
 		end := start + numPerRoutine
-		if end >= len(slice) || iter == numRoutines-1 {
+		if end >= len(slice) || iter == StartParams.Workers-1 {
 			end = len(slice)
-			iter = numRoutines
+			iter = StartParams.Workers
 		}
 		wgInternal.Add(1)
 		go processSlice(start, end, slice, wgInternal)
@@ -314,8 +337,17 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 
 	sort.Sort(replacerByIndex(results))
 
+	if progress != nil {
+		progress.Prefix(fmt.Sprintf("  - %-2s deduplicate    ", t))
+		progress.Total = int64(len(results) * 2)
+		progress.Set(0)
+	}
+
 	// 1st run: merge
 	for i1, lenResults := 0, len(results); i1 < lenResults; i1++ {
+		if progress != nil {
+			progress.Increment()
+		}
 		r1 := results[i1]
 		if r1.IsEmpty() {
 			continue
@@ -346,6 +378,9 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 	// if r and other both have a hit index, which is not shared by being
 	// closer than epsilon tp both, keep it in the parent that it is closest to.
 	for i1, lenResults := 0, len(results); i1 < lenResults; i1++ {
+		if progress != nil {
+			progress.Increment()
+		}
 		r1 := results[i1]
 		if r1.IsEmpty() {
 			continue
@@ -376,8 +411,8 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 }
 
 func deduplicate(r1, r2 *replacer) {
-	for _, value := range r2.Replaces() {
-		if !r1.Hits(value.Index) {
+	for _, value := range r1.Replaces() {
+		if !r2.Hits(value.Index) {
 			continue
 		}
 		// keep whichever is closest to value

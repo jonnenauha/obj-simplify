@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -13,8 +14,6 @@ import (
 
 var (
 	StartParams = startParams{
-		Input:   "",
-		Output:  "",
 		Eplison: 1e-6,
 	}
 
@@ -34,11 +33,17 @@ type startParams struct {
 	Stdout     bool
 	Quiet      bool
 	NoProgress bool
+	Workers    int
 	Eplison    float64
 }
 
 func init() {
 	version := false
+
+	StartParams.Workers = runtime.NumCPU() * 4
+	if StartParams.Workers < 4 {
+		StartParams.Workers = 4
+	}
 
 	flag.StringVar(&StartParams.Input,
 		"in", StartParams.Input, "Input file.")
@@ -52,6 +57,8 @@ func init() {
 		"quiet", StartParams.Quiet, "Silence stdout printing.")
 	flag.BoolVar(&StartParams.NoProgress,
 		"no-progress", StartParams.NoProgress, "No shell progress bars.")
+	flag.IntVar(&StartParams.Workers,
+		"workers", StartParams.Workers, "Number of worker goroutines.")
 	flag.BoolVar(&version,
 		"version", false, "Print version and exit, ignores -quiet.")
 
@@ -68,6 +75,10 @@ func init() {
 	if version {
 		fmt.Printf("%s v%s\n", ApplicationName, ApplicationVersion)
 		os.Exit(0)
+	}
+
+	if StartParams.Workers < 1 {
+		logFatal("-workers must be a positive number, given: %d", StartParams.Workers)
 	}
 
 	// -in
@@ -113,8 +124,7 @@ type Processor interface {
 }
 
 func main() {
-	// cpu profiling for development
-	// github.com/pkg/profile
+	// cpu profiling for development: github.com/pkg/profile
 	//defer profile.Start(profile.ProfilePath(".")).Stop()
 
 	if b, err := json.MarshalIndent(StartParams, "", "  "); err == nil {
