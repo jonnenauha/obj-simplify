@@ -62,12 +62,22 @@ func (processor Merge) Execute(obj *objectfile.OBJ) error {
 		return strings.Join(parts, " ")
 	}
 
+	mergeComments := func(objects []*objectfile.Object) (comments []string) {
+		for _, child := range objects {
+			if len(child.Comments) > 0 {
+				comments = append(comments, child.Comments...)
+			}
+		}
+		return comments
+	}
+
 	// reset objects, we are about to rewrite them
 	obj.Objects = make([]*objectfile.Object, 0)
 
 	for _, merger := range materials {
 		src := merger.Objects[0]
 		child := obj.CreateObject(src.Type, mergeName(merger.Objects), merger.Material)
+		child.Comments = mergeComments(merger.Objects)
 		for _, original := range merger.Objects {
 			child.VertexData = append(child.VertexData, original.VertexData...)
 		}

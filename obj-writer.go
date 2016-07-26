@@ -44,18 +44,34 @@ func (wr *Writer) WriteTo(w io.Writer) error {
 		for _, v := range values {
 			writeLine(t, v, false)
 		}
-		if newline {
+		if newline && len(values) > 0 {
 			ln()
 		}
+	}
+	writeComments := func(t objectfile.Type, values []string, newline bool) {
+		if len(values) == 0 {
+			return
+		}
+		comments := make([]string, len(values))
+		copy(comments, values)
+		// remove empty lines from start and end.
+		// preserve empty lines in the center for long comments.
+		for len(comments) > 0 && comments[0] == "" {
+			comments = comments[1:]
+		}
+		for len(comments) > 0 && comments[len(comments)-1] == "" {
+			comments = comments[0 : len(comments)-1]
+		}
+		writeLines(t, comments, newline)
 	}
 
 	obj := wr.obj
 
 	// leave a comment that signifies this tool was ran on the file
-	writeLine(objectfile.Comment, fmt.Sprintf("Processed by %s v%s | %s | %s", ApplicationName, ApplicationVersion, time.Now().UTC().Format(time.RFC3339), ApplicationURL), true)
+	writeLine(objectfile.Comment, fmt.Sprintf("Processed with %s v%s | %s | %s", ApplicationName, ApplicationVersion, time.Now().UTC().Format(time.RFC3339), ApplicationURL), true)
 
 	// comments
-	writeLines(objectfile.Comment, obj.Comments, true)
+	writeComments(objectfile.Comment, obj.Comments, true)
 
 	// Materials (I think there is always just one, if this can change mid file, this needs to be adjusted and pos tracked during parsing)
 	writeLines(objectfile.MtlLib, obj.MaterialLibraries, true)
@@ -77,6 +93,7 @@ func (wr *Writer) WriteTo(w io.Writer) error {
 	// objects: preserves the parsing order of g/o
 	writeLine(objectfile.Comment, fmt.Sprintf("objects [%d]", len(obj.Objects)), true)
 	for _, child := range obj.Objects {
+		writeComments(objectfile.Comment, child.Comments, true)
 		writeLine(child.Type, child.Name, false)
 		// we dont skip writing material if it has already been declared as the
 		// last material, the file is easier to read for humans with write on each

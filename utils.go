@@ -62,6 +62,15 @@ func strContains(str, part string, cs caseSensitivity) bool {
 	return strings.Contains(strings.ToLower(str), strings.ToLower(part))
 }
 
+func strContainsAny(str string, parts []string, cs caseSensitivity) bool {
+	for _, part := range parts {
+		if strContains(str, part, cs) {
+			return true
+		}
+	}
+	return false
+}
+
 func substring(str string, i int, iEnd int) string {
 	strLen := len(str)
 	if i < 0 {

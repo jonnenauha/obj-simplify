@@ -209,6 +209,7 @@ type Object struct {
 	Name       string
 	Material   string
 	VertexData []*VertexData
+	Comments   []string
 
 	parent *OBJ
 }

@@ -65,8 +65,15 @@ func (p *Parser) Parse(b []byte) (*objectfile.OBJ, error) {
 
 		// comments
 		case objectfile.Comment:
-			// @todo store object comments separately, need example files for this
-			dest.Comments = append(dest.Comments, value)
+			if currentObject == nil && len(dest.MaterialLibraries) == 0 {
+				dest.Comments = append(dest.Comments, value)
+			} else if currentObject != nil {
+				// skip comments that might refecence vertex, normal, uv, polygon etc.
+				// counts as they wont be most likely true after this tool is done.
+				if len(value) > 0 && !strContainsAny(value, []string{"vertices", "normals", "uvs", "texture coords", "polygons", "triangles"}, caseInsensitive) {
+					currentObject.Comments = append(currentObject.Comments, value)
+				}
+			}
 
 		// mtl file ref
 		case objectfile.MtlLib:
