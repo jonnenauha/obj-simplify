@@ -632,6 +632,10 @@ type GeometryStats struct {
 	Vertices, Normals, UVs, Params int
 }
 
+func (gs GeometryStats) IsEmpty() bool {
+	return gs.Vertices == 0 && gs.UVs == 0 && gs.Normals == 0 && gs.Params == 0
+}
+
 func (gs GeometryStats) Num(t Type) int {
 	switch t {
 	case Vertex:

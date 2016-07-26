@@ -193,24 +193,48 @@ func main() {
 }
 
 func logGeometryStats(stats, postprocessed objectfile.GeometryStats) {
-	logInfo(" ")
-	logResultsIntPostfix("Vertices", postprocessed.Vertices, computeStatsDiff(stats.Vertices, postprocessed.Vertices))
-	logResultsIntPostfix("Normals", postprocessed.Normals, computeStatsDiff(stats.Normals, postprocessed.Normals))
-	logResultsIntPostfix("UVs", postprocessed.UVs, computeStatsDiff(stats.UVs, postprocessed.UVs))
-	logResultsIntPostfix("Params", postprocessed.Params, computeStatsDiff(stats.Params, postprocessed.Params))
+	if !stats.IsEmpty() {
+		logInfo(" ")
+	}
+	if stats.Vertices > 0 {
+		logResultsIntPostfix("Vertices", postprocessed.Vertices, computeStatsDiff(stats.Vertices, postprocessed.Vertices))
+	}
+	if stats.Normals > 0 {
+		logResultsIntPostfix("Normals", postprocessed.Normals, computeStatsDiff(stats.Normals, postprocessed.Normals))
+	}
+	if stats.UVs > 0 {
+		logResultsIntPostfix("UVs", postprocessed.UVs, computeStatsDiff(stats.UVs, postprocessed.UVs))
+	}
+	if stats.Params > 0 {
+		logResultsIntPostfix("Params", postprocessed.Params, computeStatsDiff(stats.Params, postprocessed.Params))
+	}
 }
 
 func logObjectStats(stats, postprocessed objectfile.ObjStats) {
-	logInfo(" ")
-	logResultsIntPostfix("Groups", postprocessed.Groups, computeStatsDiff(stats.Groups, postprocessed.Groups))
-	logResultsIntPostfix("Objects", postprocessed.Objects, computeStatsDiff(stats.Objects, postprocessed.Objects))
+	if stats.Groups > 0 || stats.Objects > 0 {
+		logInfo(" ")
+	}
+	if stats.Groups > 0 {
+		logResultsIntPostfix("Groups", postprocessed.Groups, computeStatsDiff(stats.Groups, postprocessed.Groups))
+	}
+	if stats.Objects > 0 {
+		logResultsIntPostfix("Objects", postprocessed.Objects, computeStatsDiff(stats.Objects, postprocessed.Objects))
+	}
 }
 
 func logVertexDataStats(stats, postprocessed objectfile.ObjStats) {
-	logInfo(" ")
-	logResultsIntPostfix("Faces", postprocessed.Faces, computeStatsDiff(stats.Faces, postprocessed.Faces))
-	logResultsIntPostfix("Lines", postprocessed.Lines, computeStatsDiff(stats.Lines, postprocessed.Lines))
-	logResultsIntPostfix("Points", postprocessed.Points, computeStatsDiff(stats.Points, postprocessed.Points))
+	if stats.Faces > 0 || stats.Lines > 0 || stats.Points > 0 {
+		logInfo(" ")
+	}
+	if stats.Faces > 0 {
+		logResultsIntPostfix("Faces", postprocessed.Faces, computeStatsDiff(stats.Faces, postprocessed.Faces))
+	}
+	if stats.Lines > 0 {
+		logResultsIntPostfix("Lines", postprocessed.Lines, computeStatsDiff(stats.Lines, postprocessed.Lines))
+	}
+	if stats.Points > 0 {
+		logResultsIntPostfix("Points", postprocessed.Points, computeStatsDiff(stats.Points, postprocessed.Points))
+	}
 }
 
 func logFileStats() {
@@ -225,7 +249,7 @@ func logFileStats() {
 }
 
 func computeStatsDiff(a, b int) string {
-	if b == 0 || a == b {
+	if a == b {
 		return ""
 	}
 	diff := b - a

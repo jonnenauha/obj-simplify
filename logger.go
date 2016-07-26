@@ -32,16 +32,8 @@ func logTitle(format string, args ...interface{}) {
 	}
 }
 
-func logResultsInt(label string, value int) {
-	if value > 0 {
-		logResults(label, formatInt(value))
-	}
-}
-
 func logResultsIntPostfix(label string, value int, postfix string) {
-	if value > 0 {
-		logInfo(fmt.Sprintf("%-15s %15s    %s", label, formatInt(value), postfix))
-	}
+	logInfo(fmt.Sprintf("%-15s %15s    %s", label, formatInt(value), postfix))
 }
 
 func logResults(label, value string) {
