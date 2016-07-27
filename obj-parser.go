@@ -132,9 +132,12 @@ func (p *Parser) Parse(b []byte) (*objectfile.OBJ, error) {
 
 		// object: faces
 		case objectfile.Face, objectfile.Line:
+			// most tools support the file not defining a o/g prior to face declarations.
+			// I'm not sure if the spec allows not declaring any o/g.
+			// Our data structures and parsing however requires objects to put the faces into,
+			// create a default object that is named after the input file (without suffix).
 			if currentObject == nil {
-				// @todo When nil, create a default root object instead of erroring out
-				return nil, wrapErrorLine(fmt.Errorf("face declared before o/g"), linenum)
+				currentObject = dest.CreateObject(objectfile.ChildObject, fileBasename(StartParams.Input), currentMaterial)
 			}
 			vd, vdErr := currentObject.ReadVertexData(t, value)
 			if vdErr != nil {

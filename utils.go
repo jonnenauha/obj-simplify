@@ -116,6 +116,20 @@ func fileExists(path string) bool {
 	return true
 }
 
+func fileBasename(path string) string {
+	p := cleanPath(path)
+	if p[len(p)-1] == '/' {
+		p = p[0 : len(p)-1]
+	}
+	if i := strings.LastIndex(p, "/"); i != -1 {
+		p = p[i+1:]
+	}
+	if i := strings.LastIndex(p, "."); i != -1 {
+		p = p[0:i]
+	}
+	return p
+}
+
 // The returned ext is always lower-cased and contains a prefix "." dot (e.g. ".png")
 func fileExtension(path string) string {
 	// Strip query from URLs http(s)://domain.com/path/to/my.jpg?id=123312

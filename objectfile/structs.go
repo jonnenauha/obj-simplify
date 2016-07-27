@@ -166,6 +166,10 @@ func (o *OBJ) ObjectWithType(t Type) (objects []*Object) {
 }
 
 func (o *OBJ) CreateObject(t Type, name, material string) *Object {
+	if t != ChildObject && t != ChildGroup {
+		fmt.Printf("CreateObject: invalid object type %s", t)
+		return nil
+	}
 	child := &Object{
 		Type:     t,
 		Name:     name,
