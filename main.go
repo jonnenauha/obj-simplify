@@ -227,13 +227,12 @@ func logGeometryStats(stats, postprocessed objectfile.GeometryStats) {
 }
 
 func logObjectStats(stats, postprocessed objectfile.ObjStats) {
-	if stats.Groups > 0 || stats.Objects > 0 {
-		logInfo(" ")
-	}
-	if stats.Groups > 0 {
+	logInfo(" ")
+	// There is a special case where input has zero objects and we have created one or more.
+	if stats.Groups > 0 || postprocessed.Groups > 0 {
 		logResultsIntPostfix("Groups", postprocessed.Groups, computeStatsDiff(stats.Groups, postprocessed.Groups))
 	}
-	if stats.Objects > 0 {
+	if stats.Objects > 0 || postprocessed.Objects > 0 {
 		logResultsIntPostfix("Objects", postprocessed.Objects, computeStatsDiff(stats.Objects, postprocessed.Objects))
 	}
 }
@@ -270,17 +269,22 @@ func computeStatsDiff(a, b int) string {
 	}
 	diff := b - a
 	perc := computePerc(float64(b), float64(a))
-	if perc > 100.0 {
-		return fmt.Sprintf("%-7d    +%d", diff, int(perc)) + "%%"
+	if perc >= 99.999999 {
+		// positive 0 decimals
+		return fmt.Sprintf("+%-7d    +%d", diff, int(perc)) + "%%"
 	} else if perc <= 99.0 {
+		// negative 0 decimals
 		return fmt.Sprintf("%-7d    -%d", diff, 100-int(perc)) + "%%"
 	}
+	// negative 2 decimals
 	return fmt.Sprintf("%-7d    -%.2f", diff, 100-perc) + "%%"
 }
 
 func computePerc(step, total float64) float64 {
 	if step == 0 {
 		return 0.0
+	} else if total == 0 {
+		return 100.0
 	}
 	return (step / total) * 100.0
 }
