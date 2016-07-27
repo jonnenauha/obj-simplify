@@ -33,11 +33,11 @@ func (rl replacerList) FlattenGeometry() map[int]*objectfile.GeometryValue {
 // replacer
 
 type replacer struct {
-	ref              *objectfile.GeometryValue
-	replaces         map[int]*objectfile.GeometryValue
-	replacesSlice    []*objectfile.GeometryValue
-	replacesDirty    bool
-	replacesHasItems bool
+	ref           *objectfile.GeometryValue
+	replaces      map[int]*objectfile.GeometryValue
+	replacesSlice []*objectfile.GeometryValue
+	replacesDirty bool
+	hasItems      bool
 }
 
 func (r *replacer) Index() int {
@@ -45,26 +45,30 @@ func (r *replacer) Index() int {
 }
 
 func (r *replacer) IsEmpty() bool {
-	return !r.replacesHasItems
+	return !r.hasItems
 }
 
 func (r *replacer) NumReplaces() int {
-	num := 0
 	if r.replaces != nil {
-		num = len(r.replaces)
+		return len(r.replaces)
 	}
-	return num
+	return 0
 }
 
 func (r *replacer) Replaces() []*objectfile.GeometryValue {
 	// optimization to avoid huge map iters
 	if r.replacesDirty {
 		r.replacesDirty = false
-		r.replacesSlice = make([]*objectfile.GeometryValue, 0)
+
 		if r.replaces != nil {
+			r.replacesSlice = make([]*objectfile.GeometryValue, len(r.replaces), len(r.replaces))
+			i := 0
 			for _, ref := range r.replaces {
-				r.replacesSlice = append(r.replacesSlice, ref)
+				r.replacesSlice[i] = ref
+				i++
 			}
+		} else {
+			r.replacesSlice = nil
 		}
 	}
 	return r.replacesSlice
@@ -77,7 +81,7 @@ func (r *replacer) Remove(index int) {
 	if _, found := r.replaces[index]; found {
 		r.replacesDirty = true
 		delete(r.replaces, index)
-		r.replacesHasItems = len(r.replaces) > 0
+		r.hasItems = len(r.replaces) > 0
 	}
 }
 
@@ -90,12 +94,12 @@ func (r *replacer) Hit(ref *objectfile.GeometryValue) {
 		r.replaces = make(map[int]*objectfile.GeometryValue)
 	}
 	r.replacesDirty = true
-	r.replacesHasItems = true
+	r.hasItems = true
 	r.replaces[ref.Index] = ref
 }
 
 func (r *replacer) Hits(index int) bool {
-	return r.replacesHasItems && r.replaces[index] != nil
+	return r.hasItems && r.replaces[index] != nil
 }
 
 // call merge only if r.Hits(other.Index())
@@ -106,7 +110,7 @@ func (r *replacer) Merge(other *replacer) {
 			other.Remove(r.ref.Index)
 			continue
 		}
-		if r.replacesHasItems && r.replaces[value.Index] != nil {
+		if r.hasItems && r.replaces[value.Index] != nil {
 			// straight up duplicate
 			other.Remove(value.Index)
 		} else if r.ref.Equals(value, StartParams.Eplison) {
@@ -117,7 +121,7 @@ func (r *replacer) Merge(other *replacer) {
 	}
 	// if not completely merged at this point, we must
 	// reject other.Index() from our hit list.
-	if other.replacesHasItems {
+	if other.hasItems {
 		r.Remove(other.Index())
 	}
 }
@@ -289,6 +293,7 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 
 	processSlice := func(substart, subend int, fullslice []*objectfile.GeometryValue, subwg *sync.WaitGroup) {
 		innerResults := make(replacerList, 0)
+		var value *objectfile.GeometryValue
 		for first := substart; first < subend; first++ {
 			if progress != nil {
 				progress.Increment()
@@ -297,9 +302,9 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 				ref: fullslice[first],
 			}
 			for second, lenFull := first+1, len(fullslice); second < lenFull; second++ {
-				other := fullslice[second]
-				if other.Equals(result.ref, epsilon) {
-					result.Hit(other)
+				value = fullslice[second]
+				if value.Equals(result.ref, epsilon) {
+					result.Hit(value)
 				}
 			}
 			if !result.IsEmpty() {
@@ -340,36 +345,44 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 		progress.Set(0)
 	}
 
+	var r1, r2 *replacer
+
 	// 1st run: merge
 	for i1, lenResults := 0, len(results); i1 < lenResults; i1++ {
 		if progress != nil {
 			progress.Increment()
 		}
-		r1 := results[i1]
-		if !r1.replacesHasItems {
+		r1 = results[i1]
+		if !r1.hasItems {
 			continue
 		}
 		for i2 := i1 + 1; i2 < lenResults; i2++ {
-			r2 := results[i2]
-			if !r2.replacesHasItems {
+			r2 = results[i2]
+			/*if !r2.hasItems {
 				continue
-			}
-			if r1.Index() == r2.Index() {
+			}*/
+			/*if r1.ref.Index == r2.ref.Index {
 				// same primary index, this is a bug
 				logFatal("r1.Index() and r2.Index() are the same, something wrong with sub slice processing code\n%#v\n%#v\n\n", r1, r2)
-			} else if r1.Hits(r2.Index()) {
+			}*/
+			if r2.hasItems && r1.hasItems && r1.replaces[r2.ref.Index] != nil {
 				// r1 geom value equals r2.
 				// only merge r2 hits where value equals r1, otherwise
 				// we would do transitive merges which is not what we want:
 				// eg. r1 closer than eplison to r2, but r1 further than epsilon to r2.hitN
 				r1.Merge(r2)
+				// r1 might now be empty if r2 was its only hit,
+				// and it was not completely merged.
+				if !r1.hasItems {
+					break
+				}
 			}
 		}
 	}
 
 	nonemptyMerged := make(replacerList, 0)
 	for _, r := range results {
-		if r.replacesHasItems {
+		if r.hasItems {
 			nonemptyMerged = append(nonemptyMerged, r)
 		}
 	}
@@ -391,18 +404,17 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 		if progress != nil {
 			progress.Increment()
 		}
-		r1 := nonemptyMerged[i1]
-		if !r1.replacesHasItems {
+		r1 = nonemptyMerged[i1]
+		if !r1.hasItems {
 			continue
 		}
 		for i2 := i1 + 1; i2 < lenResults; i2++ {
-			r2 := nonemptyMerged[i2]
-			if !r2.replacesHasItems {
-				continue
-			}
-			deduplicate(r1, r2)
-			if !r1.replacesHasItems {
-				break
+			r2 = nonemptyMerged[i2]
+			if r2.hasItems {
+				deduplicate(r1, r2)
+				if !r1.hasItems {
+					break
+				}
 			}
 		}
 	}
@@ -410,7 +422,7 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 	// Gather non empty results
 	nonemptyFinal := make([]*replacer, 0)
 	for _, r := range nonemptyMerged {
-		if r.replacesHasItems {
+		if r.hasItems {
 			nonemptyFinal = append(nonemptyFinal, r)
 		}
 	}
@@ -425,11 +437,14 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 
 func deduplicate(r1, r2 *replacer) {
 	for _, value := range r1.Replaces() {
-		if !r2.replacesHasItems {
+		if !r2.hasItems {
+			// merged to empty during this iteration
 			return
-		} else if !r2.Hits(value.Index) {
+		} else if r2.replaces[value.Index] == nil {
+			// no hit for index, avoid function call
 			continue
 		}
+
 		// keep whichever is closest to value
 		dist1, dist2 := r1.ref.Distance(value), r2.ref.Distance(value)
 		if dist1 < dist2 {
