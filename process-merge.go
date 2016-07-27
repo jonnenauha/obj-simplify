@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/jonnenauha/obj-simplify/objectfile"
@@ -59,7 +60,24 @@ func (processor Merge) Execute(obj *objectfile.OBJ) error {
 		if len(parts) == 0 {
 			parts = append(parts, "Unnamed")
 		}
-		return strings.Join(parts, " ")
+		name := strings.Join(parts, " ")
+		// we might be merging hundreds or thousands of objects, at which point
+		// the name becomes huge. Clamp with arbitrary 256 chars.
+		if len(name) > 256 {
+			name = ""
+			for i, child := range objects {
+				if len(child.Name) == 0 {
+					continue
+				}
+				if len(name)+len(child.Name) < 256 {
+					name += child.Name + " "
+				} else {
+					name += fmt.Sprintf("(and %d others)", len(objects)-i)
+					break
+				}
+			}
+		}
+		return name
 	}
 
 	mergeComments := func(objects []*objectfile.Object) (comments []string) {
