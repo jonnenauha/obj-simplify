@@ -33,10 +33,11 @@ func (rl replacerList) FlattenGeometry() map[int]*objectfile.GeometryValue {
 // replacer
 
 type replacer struct {
-	ref           *objectfile.GeometryValue
-	replaces      map[int]*objectfile.GeometryValue
-	replacesSlice []*objectfile.GeometryValue
-	replacesDirty bool
+	ref              *objectfile.GeometryValue
+	replaces         map[int]*objectfile.GeometryValue
+	replacesSlice    []*objectfile.GeometryValue
+	replacesDirty    bool
+	replacesHasItems bool
 }
 
 func (r *replacer) Index() int {
@@ -44,7 +45,7 @@ func (r *replacer) Index() int {
 }
 
 func (r *replacer) IsEmpty() bool {
-	return r.replaces == nil || len(r.replaces) == 0
+	return !r.replacesHasItems
 }
 
 func (r *replacer) NumReplaces() int {
@@ -76,38 +77,36 @@ func (r *replacer) Remove(index int) {
 	if _, found := r.replaces[index]; found {
 		r.replacesDirty = true
 		delete(r.replaces, index)
+		r.replacesHasItems = len(r.replaces) > 0
 	}
 }
 
 func (r *replacer) Hit(ref *objectfile.GeometryValue) {
 	// cannot hit self
-	if ref.Index == r.Index() {
+	if ref.Index == r.ref.Index {
 		return
 	}
 	if r.replaces == nil {
 		r.replaces = make(map[int]*objectfile.GeometryValue)
 	}
 	r.replacesDirty = true
+	r.replacesHasItems = true
 	r.replaces[ref.Index] = ref
 }
 
-func (r *replacer) Hits(index int) (hit bool) {
-	if r.replaces != nil {
-		hit = r.replaces[index] != nil
-	}
-	return hit
+func (r *replacer) Hits(index int) bool {
+	return r.replacesHasItems && r.replaces[index] != nil
 }
 
 // call merge only if r.Hits(other.Index())
 // returns if other was completely merged to r.
-func (r *replacer) Merge(other *replacer) bool {
-	myIndex := r.Index()
+func (r *replacer) Merge(other *replacer) {
 	for _, value := range other.Replaces() {
-		if value.Index == myIndex {
-			other.Remove(myIndex)
+		if value.Index == r.ref.Index {
+			other.Remove(r.ref.Index)
 			continue
 		}
-		if r.Hits(value.Index) {
+		if r.replacesHasItems && r.replaces[value.Index] != nil {
 			// straight up duplicate
 			other.Remove(value.Index)
 		} else if r.ref.Equals(value, StartParams.Eplison) {
@@ -118,11 +117,9 @@ func (r *replacer) Merge(other *replacer) bool {
 	}
 	// if not completely merged at this point, we must
 	// reject other.Index() from our hit list.
-	completeMerge := other.IsEmpty()
-	if !completeMerge {
+	if other.replacesHasItems {
 		r.Remove(other.Index())
 	}
-	return completeMerge
 }
 
 // replacerByIndex
@@ -338,8 +335,8 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 	sort.Sort(replacerByIndex(results))
 
 	if progress != nil {
-		progress.Prefix(fmt.Sprintf("  - %-2s deduplicate    ", t))
-		progress.Total = int64(len(results) * 2)
+		progress.Prefix(fmt.Sprintf("  - %-2s merge    ", t))
+		progress.Total = int64(len(results))
 		progress.Set(0)
 	}
 
@@ -349,12 +346,12 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 			progress.Increment()
 		}
 		r1 := results[i1]
-		if r1.IsEmpty() {
+		if !r1.replacesHasItems {
 			continue
 		}
 		for i2 := i1 + 1; i2 < lenResults; i2++ {
 			r2 := results[i2]
-			if r2.IsEmpty() {
+			if !r2.replacesHasItems {
 				continue
 			}
 			if r1.Index() == r2.Index() {
@@ -369,6 +366,19 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 			}
 		}
 	}
+
+	nonemptyMerged := make(replacerList, 0)
+	for _, r := range results {
+		if r.replacesHasItems {
+			nonemptyMerged = append(nonemptyMerged, r)
+		}
+	}
+	if progress != nil {
+		progress.Prefix(fmt.Sprintf("  - %-2s deduplicate    ", t))
+		progress.Total = int64(len(nonemptyMerged))
+		progress.Set(0)
+	}
+
 	// 2nd run: deduplicate, must be done after full merge to work correctly.
 	//
 	// Deduplicate hits that are in both r1 and r2. This can happen if a value
@@ -377,42 +387,47 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 	// In this case the hit is kept in the result that is closest to it.
 	// if r and other both have a hit index, which is not shared by being
 	// closer than epsilon tp both, keep it in the parent that it is closest to.
-	for i1, lenResults := 0, len(results); i1 < lenResults; i1++ {
+	for i1, lenResults := 0, len(nonemptyMerged); i1 < lenResults; i1++ {
 		if progress != nil {
 			progress.Increment()
 		}
-		r1 := results[i1]
-		if r1.IsEmpty() {
+		r1 := nonemptyMerged[i1]
+		if !r1.replacesHasItems {
 			continue
 		}
 		for i2 := i1 + 1; i2 < lenResults; i2++ {
-			r2 := results[i2]
-			if r2.IsEmpty() {
+			r2 := nonemptyMerged[i2]
+			if !r2.replacesHasItems {
 				continue
 			}
 			deduplicate(r1, r2)
+			if !r1.replacesHasItems {
+				break
+			}
 		}
 	}
 
 	// Gather non empty results
-	nonempty := make([]*replacer, 0)
-	for _, r := range results {
-		if !r.IsEmpty() {
-			nonempty = append(nonempty, r)
+	nonemptyFinal := make([]*replacer, 0)
+	for _, r := range nonemptyMerged {
+		if r.replacesHasItems {
+			nonemptyFinal = append(nonemptyFinal, r)
 		}
 	}
 
 	// send results back
 	callback(&replacerResults{
 		Type:  t,
-		Items: nonempty,
+		Items: nonemptyFinal,
 		Spent: time.Since(started),
 	})
 }
 
 func deduplicate(r1, r2 *replacer) {
 	for _, value := range r1.Replaces() {
-		if !r2.Hits(value.Index) {
+		if !r2.replacesHasItems {
+			return
+		} else if !r2.Hits(value.Index) {
 			continue
 		}
 		// keep whichever is closest to value

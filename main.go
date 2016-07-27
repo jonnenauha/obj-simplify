@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jonnenauha/obj-simplify/objectfile"
+	"github.com/pkg/profile"
 )
 
 var (
@@ -35,6 +36,7 @@ type startParams struct {
 	NoProgress bool
 	Workers    int
 	Eplison    float64
+	CpuProfile bool
 }
 
 func init() {
@@ -57,6 +59,8 @@ func init() {
 		"quiet", StartParams.Quiet, "Silence stdout printing.")
 	flag.BoolVar(&StartParams.NoProgress,
 		"no-progress", StartParams.NoProgress, "No shell progress bars.")
+	flag.BoolVar(&StartParams.CpuProfile,
+		"cpu-profile", StartParams.CpuProfile, "Record ./cpu.pprof profile.")
 	flag.IntVar(&StartParams.Workers,
 		"workers", StartParams.Workers, "Number of worker goroutines.")
 	flag.BoolVar(&version,
@@ -125,7 +129,9 @@ type Processor interface {
 
 func main() {
 	// cpu profiling for development: github.com/pkg/profile
-	//defer profile.Start(profile.ProfilePath(".")).Stop()
+	if StartParams.CpuProfile {
+		defer profile.Start(profile.ProfilePath(".")).Stop()
+	}
 
 	if b, err := json.MarshalIndent(StartParams, "", "  "); err == nil {
 		logInfo("\n%s v%s %s", ApplicationName, ApplicationVersion, b)
