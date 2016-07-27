@@ -307,6 +307,15 @@ type Declaration struct {
 	RefVertex, RefUV, RefNormal *GeometryValue
 }
 
+func (d *Declaration) Equals(other *Declaration) bool {
+	if d.Index(Vertex) != other.Index(Vertex) ||
+		d.Index(UV) != other.Index(UV) ||
+		d.Index(Normal) != other.Index(Normal) {
+		return false
+	}
+	return true
+}
+
 // Use this getter when possible index rewrites has occurred.
 // Will first return index from geometry value pointers, if available.
 func (d *Declaration) Index(t Type) int {
@@ -375,6 +384,7 @@ func ParseListVertexData(t Type, str string) (*VertexData, error) {
 		Type: t,
 	}
 	for iMain, part := range strings.Split(str, " ") {
+		decl := &Declaration{}
 		for iPart, datapart := range strings.Split(part, "/") {
 			if len(datapart) == 0 {
 				continue
@@ -385,13 +395,14 @@ func ParseListVertexData(t Type, str string) (*VertexData, error) {
 			}
 			switch iPart {
 			case 0:
-				vt.Vertices = append(vt.Vertices, value)
+				decl.Vertex = value
 			case 1:
-				vt.UVs = append(vt.UVs, value)
+				decl.UV = value
 			default:
 				return nil, fmt.Errorf("Invalid face vertex data index %d.%d in %s", iMain, iPart, str)
 			}
 		}
+		vt.Points = append(vt.Points, decl)
 	}
 	return vt, nil
 }
@@ -408,8 +419,7 @@ type VertexData struct {
 	D *Declaration
 
 	// Line/Point
-	Vertices []int
-	UVs      []int
+	Points []*Declaration
 
 	meta map[Type]string
 }
@@ -456,7 +466,17 @@ func (f *VertexData) Index(index int) *Declaration {
 	}
 }
 
-func (vt *VertexData) Declarations() (out []*Declaration) {
+func (vt *VertexData) Declarations() []*Declaration {
+	switch vt.Type {
+	case Face:
+		return vt.Face()
+	case Line, Point:
+		return vt.Points
+	}
+	return nil
+}
+
+func (vt *VertexData) Face() (out []*Declaration) {
 	for _, fd := range []*Declaration{vt.A, vt.B, vt.C, vt.D} {
 		if fd != nil {
 			out = append(out, fd)
@@ -469,28 +489,33 @@ func (vt *VertexData) String() (out string) {
 
 	switch vt.Type {
 
-	case Line:
-		hasUVs := len(vt.Vertices) > 0 && len(vt.UVs) > 0
-		if hasUVs && len(vt.Vertices) != len(vt.UVs) {
-			fmt.Printf("[WARN]: Number of vertices and uvs do not match in Line vertex declaration %d vs %d. Not going to write UVs.\n", len(vt.Vertices), len(vt.UVs))
-			hasUVs = false
+	case Line, Point:
+		hasUVs := false
+		if vt.Type == Line {
+			for _, decl := range vt.Points {
+				if decl.Index(UV) != 0 {
+					hasUVs = true
+					break
+				}
+			}
 		}
-		for i, vertexIndex := range vt.Vertices {
-			if i > 0 {
+		var prev *Declaration
+		for di, decl := range vt.Points {
+			// remove consecutive duplicate points eg. "l 1 1 2 2 3 4 4"
+			if prev != nil && prev.Equals(decl) {
+				continue
+			}
+			if di > 0 {
 				out += " "
 			}
-			out += strconv.Itoa(vertexIndex)
+			out += strconv.Itoa(decl.Index(Vertex))
 			if hasUVs {
-				out += "/" + strconv.Itoa(vt.UVs[i])
+				out += "/"
+				if index := decl.Index(UV); index != 0 {
+					out += strconv.Itoa(index)
+				}
 			}
-		}
-
-	case Point:
-		for i, vertexIndex := range vt.Vertices {
-			if i > 0 {
-				out += " "
-			}
-			out += strconv.Itoa(vertexIndex)
+			prev = decl
 		}
 
 	case Face:
@@ -498,34 +523,34 @@ func (vt *VertexData) String() (out string) {
 
 		// always use ptr refs if available.
 		// this enables simple index rewrites.
-		decls := vt.Declarations()
+		decls := vt.Face()
 		for _, decl := range decls {
-			if !hasUVs && decl.Index(UV) != 0 {
-				hasUVs = true
+			if !hasUVs {
+				hasUVs = decl.Index(UV) != 0
 			}
-			if !hasNormals && decl.Index(Normal) != 0 {
-				hasNormals = true
+			if !hasNormals {
+				hasNormals = decl.Index(Normal) != 0
 			}
 			if hasUVs && hasNormals {
 				break
 			}
 		}
 		for di, decl := range decls {
+			if di > 0 {
+				out += " "
+			}
 			out += strconv.Itoa(decl.Index(Vertex))
 			if hasUVs || hasNormals {
 				out += "/"
-				if decl.Index(UV) != 0 {
-					out += strconv.Itoa(decl.Index(UV))
+				if index := decl.Index(UV); index != 0 {
+					out += strconv.Itoa(index)
 				}
 			}
 			if hasNormals {
 				out += "/"
-				if decl.Index(Normal) != 0 {
-					out += strconv.Itoa(decl.Index(Normal))
+				if index := decl.Index(Normal); index != 0 {
+					out += strconv.Itoa(index)
 				}
-			}
-			if di < len(decls)-1 {
-				out += " "
 			}
 		}
 	}

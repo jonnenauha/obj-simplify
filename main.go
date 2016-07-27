@@ -271,7 +271,7 @@ func computeStatsDiff(a, b int) string {
 	perc := computePerc(float64(b), float64(a))
 	if perc >= 99.999999 {
 		// positive 0 decimals
-		return fmt.Sprintf("+%-7d    +%d", diff, int(perc)) + "%%"
+		return fmt.Sprintf("+%-7d", diff)
 	} else if perc <= 99.0 {
 		// negative 0 decimals
 		return fmt.Sprintf("%-7d    -%d", diff, 100-int(perc)) + "%%"

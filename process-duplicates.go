@@ -463,31 +463,31 @@ func replaceDuplicates(t objectfile.Type, obj *objectfile.OBJ, replacements repl
 	replaced := 0
 	for _, child := range obj.Objects {
 		for _, vt := range child.VertexData {
-			if vt.Type == objectfile.Face {
-				for _, decl := range vt.Declarations() {
-					switch t {
-					case objectfile.Vertex:
-						if ref := indexToRef[decl.Vertex]; ref != nil {
-							replaced++
-							decl.RefVertex.Discard = true
-							decl.RefVertex = ref
-						}
-					case objectfile.UV:
-						if ref := indexToRef[decl.UV]; ref != nil {
-							replaced++
-							decl.RefUV.Discard = true
-							decl.RefUV = ref
-						}
-					case objectfile.Normal:
-						if ref := indexToRef[decl.Normal]; ref != nil {
-							replaced++
-							decl.RefNormal.Discard = true
-							decl.RefNormal = ref
-						}
+			// catch newly added types that are not implemented yet here
+			if vt.Type != objectfile.Face && vt.Type != objectfile.Line && vt.Type != objectfile.Point {
+				logFatal("Unsupported vertex data type %q for replacing duplicates\n\nPlease submit a bug report. If you can, provide this file as an attachement.\n> %s\n", vt.Type, ApplicationURL+"/issues")
+			}
+			for _, decl := range vt.Declarations() {
+				switch t {
+				case objectfile.Vertex:
+					if ref := indexToRef[decl.Vertex]; ref != nil {
+						replaced++
+						decl.RefVertex.Discard = true
+						decl.RefVertex = ref
+					}
+				case objectfile.UV:
+					if ref := indexToRef[decl.UV]; ref != nil {
+						replaced++
+						decl.RefUV.Discard = true
+						decl.RefUV = ref
+					}
+				case objectfile.Normal:
+					if ref := indexToRef[decl.Normal]; ref != nil {
+						replaced++
+						decl.RefNormal.Discard = true
+						decl.RefNormal = ref
 					}
 				}
-			} else {
-				logFatal("Unsupported vertex data type %q for replacing duplicates\n\nPlease submit a bug report. If you can, provide this file as an attachement.\n> %s\n", t, ApplicationURL+"/issues")
 			}
 		}
 	}
