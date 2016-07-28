@@ -131,7 +131,7 @@ func (p *Parser) Parse(b []byte) (*objectfile.OBJ, error) {
 			}
 
 		// object: faces
-		case objectfile.Face, objectfile.Line:
+		case objectfile.Face, objectfile.Line, objectfile.Point:
 			// most tools support the file not defining a o/g prior to face declarations.
 			// I'm not sure if the spec allows not declaring any o/g.
 			// Our data structures and parsing however requires objects to put the faces into,
