@@ -27,4 +27,5 @@ _testmain.go
 obj-simplify
 obj-simplify.*
 
+bin
 tests
