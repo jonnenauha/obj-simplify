@@ -4,7 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/jonnenauha/obj-simplify/objectfile"
@@ -20,18 +21,23 @@ type Parser struct {
 }
 
 func (p *Parser) ParseFile(path string) (*objectfile.OBJ, error) {
-	b, err := ioutil.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	return p.Parse(b)
+	defer f.Close()
+	return p.Parse(f)
 }
 
-func (p *Parser) Parse(b []byte) (*objectfile.OBJ, error) {
+func (p *Parser) ParseBytes(b []byte) (*objectfile.OBJ, error) {
+	return p.Parse(bytes.NewBuffer(b))
+}
+
+func (p *Parser) Parse(src io.Reader) (*objectfile.OBJ, error) {
 	dest := objectfile.NewOBJ()
 	geom := dest.Geometry
 
-	scanner := bufio.NewScanner(bytes.NewBuffer(b))
+	scanner := bufio.NewScanner(src)
 	linenum := 0
 
 	var (
