@@ -57,7 +57,7 @@ func init() {
 	flag.StringVar(&StartParams.Output,
 		"out", StartParams.Output, "Output file or directory.")
 	flag.BoolVar(&StartParams.Stdout,
-		"stdout", StartParams.Stdout, "Write output file to stdout. If enabled -out is ignored and any logging is written to stderr.")
+		"stdout", StartParams.Stdout, "Write output to stdout. If enabled -out is ignored and logging directed to stderr. Use -quiet if you can't separate stdout from stderr (e.g. non-trivial in Windows).")
 	flag.Float64Var(&StartParams.Eplison,
 		"epsilon", StartParams.Eplison, "Epsilon for float comparisons.")
 	flag.BoolVar(&StartParams.Strict,
@@ -286,10 +286,12 @@ func logFileStats(linesParsed, linesWritten int) {
 	logInfo(" ")
 	sizeIn, sizeOut := fileSize(StartParams.Input), fileSize(StartParams.Output)
 	logResults("File input", formatBytes(sizeIn))
-	if sizeOut < sizeIn {
-		logResultsPostfix("File output", formatBytes(sizeOut), fmt.Sprintf("%-10s %s", formatBytes(sizeOut-sizeIn), "-"+intToString(int(100-computePerc(float64(sizeOut), float64(sizeIn))))+"%%"))
-	} else {
-		logResultsPostfix("File output", formatBytes(sizeOut), fmt.Sprintf("+%-10s %s", formatBytes(sizeOut-sizeIn), "+"+intToString(int(computePerc(float64(sizeOut), float64(sizeIn))-100))+"%%"))
+	if !StartParams.Stdout {
+		if sizeOut < sizeIn {
+			logResultsPostfix("File output", formatBytes(sizeOut), fmt.Sprintf("%-10s %s", formatBytes(sizeOut-sizeIn), "-"+intToString(int(100-computePerc(float64(sizeOut), float64(sizeIn))))+"%%"))
+		} else {
+			logResultsPostfix("File output", formatBytes(sizeOut), fmt.Sprintf("+%-10s %s", formatBytes(sizeOut-sizeIn), "+"+intToString(int(computePerc(float64(sizeOut), float64(sizeIn))-100))+"%%"))
+		}
 	}
 }
 
