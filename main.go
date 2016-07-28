@@ -18,9 +18,11 @@ var (
 		Eplison: 1e-6,
 	}
 
-	ApplicationName    = "obj-simplify"
-	ApplicationURL     = "https://github.com/jonnenauha/" + ApplicationName
-	ApplicationVersion = "0.1" // inject in build step or git tag?
+	ApplicationName = "obj-simplify"
+	ApplicationURL  = "https://github.com/jonnenauha/" + ApplicationName
+	Version         string
+	VersionHash     string
+	VersionDate     string
 
 	Processors = []*processor{
 		&processor{Processor: Duplicates{}},
@@ -77,7 +79,7 @@ func init() {
 
 	// -version
 	if version {
-		fmt.Printf("%s v%s\n", ApplicationName, ApplicationVersion)
+		fmt.Printf("%s %s\n", ApplicationName, getVersion(true))
 		os.Exit(0)
 	}
 
@@ -112,6 +114,17 @@ func init() {
 	}
 }
 
+func getVersion(date bool) (version string) {
+	if Version == "" {
+		return "dev"
+	}
+	version = fmt.Sprintf("v%s (%s)", Version, VersionHash)
+	if date {
+		version += " " + VersionDate
+	}
+	return version
+}
+
 type processor struct {
 	Processor
 	Disabled bool
@@ -134,7 +147,7 @@ func main() {
 	}
 
 	if b, err := json.MarshalIndent(StartParams, "", "  "); err == nil {
-		logInfo("\n%s v%s %s", ApplicationName, ApplicationVersion, b)
+		logInfo("\n%s %s %s", ApplicationName, getVersion(false), b)
 	} else {
 		logFatalError(err)
 	}

@@ -68,7 +68,7 @@ func (wr *Writer) WriteTo(w io.Writer) error {
 	obj := wr.obj
 
 	// leave a comment that signifies this tool was ran on the file
-	writeLine(objectfile.Comment, fmt.Sprintf("Processed with %s v%s | %s | %s", ApplicationName, ApplicationVersion, time.Now().UTC().Format(time.RFC3339), ApplicationURL), true)
+	writeLine(objectfile.Comment, fmt.Sprintf("Processed with %s %s | %s | %s", ApplicationName, getVersion(false), time.Now().UTC().Format(time.RFC3339), ApplicationURL), true)
 
 	// comments
 	writeComments(objectfile.Comment, obj.Comments, true)

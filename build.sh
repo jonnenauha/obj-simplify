@@ -1,7 +1,13 @@
 #!/bin/bash
 
+set -e
+
 rm -rf bin
 mkdir -p bin/release
+
+VERSION="1.0"
+VERSION_HASH="$(git rev-parse --short HEAD)"
+VERSION_DATE="$(date -u '+%d.%m.%Y %H:%M:%S')"
 
 for goos in linux darwin windows ; do
     for goarch in amd64 386; do
@@ -14,7 +20,7 @@ for goos in linux darwin windows ; do
 
         # build
         echo -e "\nBuilding $goos/$goarch"
-        GOOS=$goos GOARCH=$goarch go build -o $path
+        GOOS=$goos GOARCH=$goarch go build -o $path -ldflags "-X 'main.Version=$VERSION' -X 'main.VersionHash=$VERSION_HASH' -X 'main.VersionDate=$VERSION_DATE'"
         echo "  > `du -hc $path | awk 'NR==1{print $1;}'`    `file $path`"
 
         # compress (for unique filenames to github release files)
@@ -26,7 +32,11 @@ for goos in linux darwin windows ; do
     done
 done
 
-echo -e "\nRelease done"
+go env > .goenv
+source .goenv
+rm .goenv
+
+echo -e "\nRelease done: $(./bin/$GOOS/$GOARCH/obj-simlify --version)"
 for goos in linux darwin windows ; do
     for goarch in amd64 386; do
         path=bin/release/$goos-$goarch.tar.gz
@@ -36,5 +46,3 @@ for goos in linux darwin windows ; do
         echo "  > `du -hc $path | awk 'NR==1{print $1;}'`    $path"
     done
 done
-
-echo ""
