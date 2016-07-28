@@ -222,16 +222,16 @@ type Object struct {
 //
 // If parent OBJ is non nil, additionally converts negative index
 // references into absolute indexes and check out of bounds errors.
-func (o *Object) ReadVertexData(t Type, value string) (*VertexData, error) {
+func (o *Object) ReadVertexData(t Type, value string, strict bool) (*VertexData, error) {
 	var (
 		vt  *VertexData
 		err error
 	)
 	switch t {
 	case Face:
-		vt, err = ParseFaceVertexData(value)
+		vt, err = ParseFaceVertexData(value, strict)
 	case Line, Point:
-		vt, err = ParseListVertexData(t, value)
+		vt, err = ParseListVertexData(t, value, strict)
 	default:
 		err = fmt.Errorf("Unsupported vertex data declaration %s %s", t, value)
 	}
@@ -343,7 +343,7 @@ func (d *Declaration) Index(t Type) int {
 
 // vertex data parsers
 
-func ParseFaceVertexData(str string) (vt *VertexData, err error) {
+func ParseFaceVertexData(str string, strict bool) (vt *VertexData, err error) {
 	vt = &VertexData{
 		Type: Face,
 	}
@@ -369,14 +369,17 @@ func ParseFaceVertexData(str string) (vt *VertexData, err error) {
 			case 2:
 				dest.Normal = value
 			default:
-				return nil, fmt.Errorf("Invalid face vertex data index %d.%d in %s", iMain, iPart, str)
+				if strict {
+					return nil, fmt.Errorf("Invalid face vertex data index %d.%d in %s", iMain, iPart, str)
+				}
+				break
 			}
 		}
 	}
 	return vt, nil
 }
 
-func ParseListVertexData(t Type, str string) (*VertexData, error) {
+func ParseListVertexData(t Type, str string, strict bool) (*VertexData, error) {
 	if t != Line && t != Point {
 		return nil, fmt.Errorf("ParseListVertexData supports face and point type, given: %s", t)
 	}
@@ -399,7 +402,10 @@ func ParseListVertexData(t Type, str string) (*VertexData, error) {
 			case 1:
 				decl.UV = value
 			default:
-				return nil, fmt.Errorf("Invalid face vertex data index %d.%d in %s", iMain, iPart, str)
+				if strict {
+					return nil, fmt.Errorf("Invalid face vertex data index %d.%d in %s", iMain, iPart, str)
+				}
+				break
 			}
 		}
 		vt.Points = append(vt.Points, decl)
@@ -566,11 +572,10 @@ type Geometry struct {
 	Params   []*GeometryValue // vp   u v [w]
 }
 
-func (g *Geometry) ReadValue(t Type, value string) (*GeometryValue, error) {
+func (g *Geometry) ReadValue(t Type, value string, strict bool) (*GeometryValue, error) {
 	gv := &GeometryValue{}
-	// default values
-	switch t {
-	case Vertex, Point:
+	// default values by the spec, not serialized in String() if not touched.
+	if t == Vertex || t == Point {
 		gv.W = 1
 	}
 	for i, part := range strings.Split(value, " ") {
@@ -589,6 +594,7 @@ func (g *Geometry) ReadValue(t Type, value string) (*GeometryValue, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Found invalid number from %q: %s", value, err)
 		}
+
 		switch i {
 		case 0:
 			gv.X = num
@@ -597,9 +603,15 @@ func (g *Geometry) ReadValue(t Type, value string) (*GeometryValue, error) {
 		case 2:
 			gv.Z = num
 		case 3:
+			if strict && t != Vertex {
+				return nil, fmt.Errorf("Found invalid fourth component: %s %s", t.String(), value)
+			}
 			gv.W = num
 		default:
-			return nil, fmt.Errorf("Found invalid fifth component from %s value %q", t.String(), value)
+			if strict {
+				return nil, fmt.Errorf("Found invalid fifth component: %s %s", t.String(), value)
+			}
+			break
 		}
 	}
 	// OBJ refs start from 1 not zero

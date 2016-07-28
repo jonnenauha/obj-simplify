@@ -17,8 +17,6 @@ This tool can be destructive and contain bugs, it will not let you overwrite the
 
 Use `-eplison` to tune vector equality checks, the default is `1e-6`. This can have a positive impact especially on large OBJ files. Basic cleanup like trimming trailing zeros and converting -0 into 0.
 
-Use 
-
 ## Object merging and multi-materials
 
 If your 3D-application needs to interact with all of the submeshes in the model, you should not use this tool. For example an avatar model that has the same material in both gloves and your app wants to know e.g. which glove the user clicked on. This tool will merge both of the gloves face declarations to a single submesh to reduce draw calls. The visuals are the same, but the structure of the model can change.
@@ -31,44 +29,53 @@ All found geometry from the source file is written at the top of the file, skipp
 
 ## Configuration
 
-There are command line flags for configuration and disabling processing steps, see `-h` for more.
+There are command line flags for configuration and disabling processing steps, see `-h` for help.
 
 ```
-obj-simplify v0.1 {
+obj-simplify {
   "Input": "test.obj",
   "Output": "test.simplified.obj",
+  "Strict": false,
   "Stdout": false,
   "Quiet": false,
   "NoProgress": false,
+  "CpuProfile": false,
+  "Workers": 32,
   "Eplison": 1e-06
 }
 
 processor #1: Duplicates
   - Using epsilon of 1e-06
-  - v      386 duplicates found for 353 unique indexes (0.91%) in 4.21s
-  - vt      11 duplicates found for 11 unique indexes (0.01%) in 5.74s
-  - vn   11235 duplicates found for 1551 unique indexes (46%) in 6.59s
-  - v     4920 refs replaced in 0.05s
-  - vt      60 refs replaced in 0.06s
+  - vn deduplicate     1957 / 1957 [==================================] 100.00%
+  - vt deduplicate     11 / 11 [======================================] 100.00%
+  - v  deduplicate     353 / 353 [====================================] 100.00%
+  - v      386 duplicates found for 353 unique indexes (0.91%) in 4.87s
+  - vn   11235 duplicates found for 1551 unique indexes (46%) in 6.48s
+  - vt      11 duplicates found for 11 unique indexes (0.01%) in 5.71s
+  - v     4920 refs replaced in 0.11s
   - vn  296829 refs replaced in 0.06s
- 
+  - vt      60 refs replaced in 0.06s
+
 processor #2: Merge
   - Found 88 unique materials
- 
-Parse                     0.40s    4%
-Duplicates                6.77s    82%
-Merge                     0.01s    0.11%
+
+Parse                     0.41s    4%
+Duplicates                6.92s    82%
+Merge                     0.01s    0.16%
 Write                     1.03s    12%
-Total                     8.21s
- 
+Total                     8.37s
+
 Vertices                 42 099    -386       -0.91%
 Normals                  13 041    -11235     -47%
 UVs                      76 891    -11        -0.01%
- 
-Faces                   162 982    
- 
+
+Faces                   162 982
+
 Groups                       88    -532       -86%
- 
-Input file             12.52 MB
-Output file            10.00 MB    -2.53 MB   -20%
+
+Lines input             519 767
+Lines output            295 384    -224 383   -43%
+
+File input             12.52 MB
+File output            10.01 MB    -2.51 MB   -20%
 ```

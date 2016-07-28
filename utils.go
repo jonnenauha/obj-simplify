@@ -155,6 +155,9 @@ func fileSize(path string) int64 {
 func formatInt(num int) string {
 	str := intToString(num)
 	for i := len(str) - 1; i > 2; i -= 3 {
+		if str[0:i-2] == "-" {
+			break
+		}
 		str = str[0:i-2] + " " + str[i-2:]
 	}
 	return str

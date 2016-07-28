@@ -31,14 +31,17 @@ var (
 )
 
 type startParams struct {
-	Input      string
-	Output     string
+	Input  string
+	Output string
+
+	Strict     bool
 	Stdout     bool
 	Quiet      bool
 	NoProgress bool
-	Workers    int
-	Eplison    float64
 	CpuProfile bool
+
+	Workers int
+	Eplison float64
 }
 
 func init() {
@@ -57,6 +60,8 @@ func init() {
 		"stdout", StartParams.Stdout, "Write output file to stdout. If enabled -out is ignored and any logging is written to stderr.")
 	flag.Float64Var(&StartParams.Eplison,
 		"epsilon", StartParams.Eplison, "Epsilon for float comparisons.")
+	flag.BoolVar(&StartParams.Strict,
+		"strict", StartParams.Strict, "Errors out on spec violations, otherwise continues if the error is recoverable.")
 	flag.BoolVar(&StartParams.Quiet,
 		"quiet", StartParams.Quiet, "Silence stdout printing.")
 	flag.BoolVar(&StartParams.NoProgress,
@@ -77,7 +82,7 @@ func init() {
 
 	initLogging(!StartParams.Stdout)
 
-	// -version
+	// -version: ignores -stdout as we are about to exit
 	if version {
 		fmt.Printf("%s %s\n", ApplicationName, getVersion(true))
 		os.Exit(0)
@@ -168,7 +173,7 @@ func main() {
 	)
 
 	// parse
-	obj, err := ParseFile(StartParams.Input)
+	obj, linesParsed, err := ParseFile(StartParams.Input)
 	if err != nil {
 		logFatalError(err)
 	}
@@ -196,12 +201,17 @@ func main() {
 	postStats := obj.Stats()
 
 	// write file out
-	w := &Writer{obj: obj}
+	var (
+		w            = &Writer{obj: obj}
+		linesWritten int
+		errWrite     error
+	)
 	if StartParams.Stdout {
-		logFatalError(w.WriteTo(os.Stdout))
+		linesWritten, errWrite = w.WriteTo(os.Stdout)
 	} else {
-		logFatalError(w.WriteFile(StartParams.Output))
+		linesWritten, errWrite = w.WriteFile(StartParams.Output)
 	}
+	logFatalError(errWrite)
 	timeStep("Write")
 
 	// print stats etc
@@ -215,7 +225,7 @@ func main() {
 	logGeometryStats(preStats.Geometry, postStats.Geometry)
 	logVertexDataStats(preStats, postStats)
 	logObjectStats(preStats, postStats)
-	logFileStats()
+	logFileStats(linesParsed, linesWritten)
 
 	logInfo(" ")
 }
@@ -264,14 +274,22 @@ func logVertexDataStats(stats, postprocessed objectfile.ObjStats) {
 	}
 }
 
-func logFileStats() {
+func logFileStats(linesParsed, linesWritten int) {
+	logInfo(" ")
+	logResults("Lines input", formatInt(linesParsed))
+	if linesWritten < linesParsed {
+		logResultsPostfix("Lines output", formatInt(linesWritten), fmt.Sprintf("%-10s %s", formatInt(linesWritten-linesParsed), "-"+intToString(int(100-computePerc(float64(linesWritten), float64(linesParsed))))+"%%"))
+	} else {
+		logResultsPostfix("Lines output", formatInt(linesWritten), fmt.Sprintf("+%-10s %s", formatInt(linesWritten-linesParsed), "+"+intToString(int(computePerc(float64(linesWritten), float64(linesParsed))-100))+"%%"))
+	}
+
 	logInfo(" ")
 	sizeIn, sizeOut := fileSize(StartParams.Input), fileSize(StartParams.Output)
-	logResults("Input file", formatBytes(sizeIn))
+	logResults("File input", formatBytes(sizeIn))
 	if sizeOut < sizeIn {
-		logResultsPostfix("Output file", formatBytes(sizeOut), fmt.Sprintf("%-10s %s", formatBytes(sizeOut-sizeIn), "-"+intToString(int(100-computePerc(float64(sizeOut), float64(sizeIn))))+"%%"))
+		logResultsPostfix("File output", formatBytes(sizeOut), fmt.Sprintf("%-10s %s", formatBytes(sizeOut-sizeIn), "-"+intToString(int(100-computePerc(float64(sizeOut), float64(sizeIn))))+"%%"))
 	} else {
-		logResultsPostfix("Output file", formatBytes(sizeOut), fmt.Sprintf("%-10s %s", formatBytes(sizeOut-sizeIn), "+"+intToString(int(computePerc(float64(sizeOut), float64(sizeIn))-100))+"%%"))
+		logResultsPostfix("File output", formatBytes(sizeOut), fmt.Sprintf("+%-10s %s", formatBytes(sizeOut-sizeIn), "+"+intToString(int(computePerc(float64(sizeOut), float64(sizeIn))-100))+"%%"))
 	}
 }
 

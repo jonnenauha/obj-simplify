@@ -13,29 +13,33 @@ type Writer struct {
 	obj *objectfile.OBJ
 }
 
-func (wr *Writer) WriteFile(path string) error {
+func (wr *Writer) WriteFile(path string) (int, error) {
 	if fileExists(path) {
 		if err := os.Remove(path); err != nil {
-			return err
+			return 0, err
 		}
 	}
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	err = wr.WriteTo(f)
-	if cErr := f.Close(); cErr != nil && err == nil {
-		err = cErr
+	linesWritten, errWrite := wr.WriteTo(f)
+	if cErr := f.Close(); cErr != nil && errWrite == nil {
+		errWrite = cErr
 	}
-	return err
+	return linesWritten, errWrite
 }
 
-func (wr *Writer) WriteTo(w io.Writer) error {
+func (wr *Writer) WriteTo(w io.Writer) (int, error) {
+	linesWritten := 0
+
 	ln := func() {
 		fmt.Fprint(w, "\n")
+		linesWritten++
 	}
 	writeLine := func(t objectfile.Type, value string, newline bool) {
 		fmt.Fprintf(w, "%s %s\n", t, value)
+		linesWritten++
 		if newline {
 			ln()
 		}
@@ -111,5 +115,5 @@ func (wr *Writer) WriteTo(w io.Writer) error {
 		ln()
 	}
 
-	return nil
+	return linesWritten, nil
 }

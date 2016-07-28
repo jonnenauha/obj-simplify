@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/jonnenauha/obj-simplify/objectfile"
 )
@@ -16,20 +18,20 @@ var (
 	GroupsParsed  int
 )
 
-func ParseFile(path string) (*objectfile.OBJ, error) {
+func ParseFile(path string) (*objectfile.OBJ, int, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
 	defer f.Close()
 	return parse(f)
 }
 
-func ParseBytes(b []byte) (*objectfile.OBJ, error) {
+func ParseBytes(b []byte) (*objectfile.OBJ, int, error) {
 	return parse(bytes.NewBuffer(b))
 }
 
-func parse(src io.Reader) (*objectfile.OBJ, error) {
+func parse(src io.Reader) (*objectfile.OBJ, int, error) {
 	dest := objectfile.NewOBJ()
 	geom := dest.Geometry
 
@@ -63,6 +65,22 @@ func parse(src io.Reader) (*objectfile.OBJ, error) {
 		}
 		t, value := parseLineType(line)
 
+		// Force GC and release mem to OS for >1 million
+		// line source files, every million lines.
+		//
+		// @todo We should also do data structure optimizations to handle
+		// multiple gig source files without swapping on low mem machines.
+		// A 4.5gb 82 million line test source file starts swapping on my 8gb
+		// mem machine (though this app used ~5gb) at about the 40 million line mark.
+		//
+		// Above should be done when actualy users have a real use case for such
+		// large files :)
+		if linenum%1000000 == 0 {
+			rt := time.Now()
+			debug.FreeOSMemory()
+			logInfo("%s lines parsed - Forced GC took %s", formatInt(linenum), formatDurationSince(rt))
+		}
+
 		switch t {
 
 		// comments
@@ -83,8 +101,8 @@ func parse(src io.Reader) (*objectfile.OBJ, error) {
 
 		// geometry
 		case objectfile.Vertex, objectfile.Normal, objectfile.UV, objectfile.Param:
-			if _, err := geom.ReadValue(t, value); err != nil {
-				return nil, wrapErrorLine(err, linenum)
+			if _, err := geom.ReadValue(t, value, StartParams.Strict); err != nil {
+				return nil, linenum, wrapErrorLine(err, linenum)
 			}
 
 		// object, group
@@ -141,9 +159,9 @@ func parse(src io.Reader) (*objectfile.OBJ, error) {
 			if currentObject == nil {
 				currentObject = dest.CreateObject(objectfile.ChildObject, fileBasename(StartParams.Input), currentMaterial)
 			}
-			vd, vdErr := currentObject.ReadVertexData(t, value)
+			vd, vdErr := currentObject.ReadVertexData(t, value, StartParams.Strict)
 			if vdErr != nil {
-				return nil, wrapErrorLine(vdErr, linenum)
+				return nil, linenum, wrapErrorLine(vdErr, linenum)
 			}
 			// attach current smooth group and reset it
 			if len(currentSmoothGroup) > 0 {
@@ -158,15 +176,15 @@ func parse(src io.Reader) (*objectfile.OBJ, error) {
 
 		// unknown
 		case objectfile.Unkown:
-			return nil, wrapErrorLine(fmt.Errorf("Unsupported line %q\n\nPlease submit a bug report. If you can, provide this file as an attachement.\n> %s\n", line, ApplicationURL+"/issues"), linenum)
+			return nil, linenum, wrapErrorLine(fmt.Errorf("Unsupported line %q\n\nPlease submit a bug report. If you can, provide this file as an attachement.\n> %s\n", line, ApplicationURL+"/issues"), linenum)
 		default:
-			return nil, wrapErrorLine(fmt.Errorf("Unsupported line %q\n\nPlease submit a bug report. If you can, provide this file as an attachement.\n> %s\n", line, ApplicationURL+"/issues"), linenum)
+			return nil, linenum, wrapErrorLine(fmt.Errorf("Unsupported line %q\n\nPlease submit a bug report. If you can, provide this file as an attachement.\n> %s\n", line, ApplicationURL+"/issues"), linenum)
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return nil, linenum, err
 	}
-	return dest, nil
+	return dest, linenum, nil
 }
 
 func wrapErrorLine(err error, linenum int) error {
