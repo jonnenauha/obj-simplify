@@ -16,24 +16,20 @@ var (
 	GroupsParsed  int
 )
 
-type Parser struct {
-	Filepath string
-}
-
-func (p *Parser) ParseFile(path string) (*objectfile.OBJ, error) {
+func ParseFile(path string) (*objectfile.OBJ, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	return p.Parse(f)
+	return parse(f)
 }
 
-func (p *Parser) ParseBytes(b []byte) (*objectfile.OBJ, error) {
-	return p.Parse(bytes.NewBuffer(b))
+func ParseBytes(b []byte) (*objectfile.OBJ, error) {
+	return parse(bytes.NewBuffer(b))
 }
 
-func (p *Parser) Parse(src io.Reader) (*objectfile.OBJ, error) {
+func parse(src io.Reader) (*objectfile.OBJ, error) {
 	dest := objectfile.NewOBJ()
 	geom := dest.Geometry
 

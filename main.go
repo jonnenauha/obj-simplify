@@ -168,8 +168,7 @@ func main() {
 	)
 
 	// parse
-	parser := &Parser{}
-	obj, err := parser.ParseFile(StartParams.Input)
+	obj, err := ParseFile(StartParams.Input)
 	if err != nil {
 		logFatalError(err)
 	}
