@@ -36,7 +36,7 @@ All found geometry from the source file is written at the top of the file, skipp
 I have contributed to the OBJ parser/loader in three.js and know it very well. I know what kind of files it has performance problems with and how to try to avoid them. I have also implemented some of the optimization done in this tool in JS on the client side, after the model has been loaded. But even if doable, its a waste of time to do them on each load for each user. Also certain optimizations can not be done on the client side.  That being said there is nothing spesific in the tool for three.js, it can help as much in other rendering engines. This tool can help you get:
 
 * Faster load over the network
- * Reduce filesize, possibly better compression e.g. with gzip
+ * Reduce filesize, possibly better compression e.g. with gzip (see `-gzip`)
 * Faster loading by the parser 
  * Drop duplicates, reduce files size in general to parse less lines
  * Arraging file output in a way that *might* benefit V8 etc. to optimize the execution better.
@@ -52,13 +52,14 @@ There are command line flags for configuration and disabling processing steps, s
 obj-simplify {
   "Input": "test.obj",
   "Output": "test.simplified.obj",
+  "Workers": 32,
+  "Gzip": -1,
+  "Eplison": 1e-06,
   "Strict": false,
   "Stdout": false,
   "Quiet": false,
   "NoProgress": false,
-  "CpuProfile": false,
-  "Workers": 32,
-  "Eplison": 1e-06
+  "CpuProfile": false
 }
 
 processor #1: Duplicates

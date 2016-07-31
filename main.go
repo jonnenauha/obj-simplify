@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 
 var (
 	StartParams = startParams{
+		Gzip:    -1,
 		Eplison: 1e-6,
 	}
 
@@ -34,14 +36,19 @@ type startParams struct {
 	Input  string
 	Output string
 
+	Workers int
+	Gzip    int
+	Eplison float64
+
 	Strict     bool
 	Stdout     bool
 	Quiet      bool
 	NoProgress bool
 	CpuProfile bool
+}
 
-	Workers int
-	Eplison float64
+func (sp startParams) IsGzipEnabled() bool {
+	return sp.Gzip >= gzip.BestSpeed && sp.Gzip <= gzip.BestCompression
 }
 
 func init() {
@@ -56,20 +63,24 @@ func init() {
 		"in", StartParams.Input, "Input file.")
 	flag.StringVar(&StartParams.Output,
 		"out", StartParams.Output, "Output file or directory.")
-	flag.BoolVar(&StartParams.Stdout,
-		"stdout", StartParams.Stdout, "Write output to stdout. If enabled -out is ignored and logging directed to stderr. Use -quiet if you can't separate stdout from stderr (e.g. non-trivial in Windows).")
+
+	flag.IntVar(&StartParams.Workers,
+		"workers", StartParams.Workers, "Number of worker goroutines.")
+	flag.IntVar(&StartParams.Gzip,
+		"gzip", StartParams.Gzip, "Gzip compression level on the output for both -stdout and -out. <=0 disables compression, use 1 (best speed) to 9 (best compression) to enable.")
 	flag.Float64Var(&StartParams.Eplison,
 		"epsilon", StartParams.Eplison, "Epsilon for float comparisons.")
+
 	flag.BoolVar(&StartParams.Strict,
 		"strict", StartParams.Strict, "Errors out on spec violations, otherwise continues if the error is recoverable.")
+	flag.BoolVar(&StartParams.Stdout,
+		"stdout", StartParams.Stdout, "Write output to stdout. If enabled -out is ignored and logging directed to stderr. Use -quiet if you can't separate stdout from stderr (e.g. non-trivial in Windows).")
 	flag.BoolVar(&StartParams.Quiet,
 		"quiet", StartParams.Quiet, "Silence stdout printing.")
 	flag.BoolVar(&StartParams.NoProgress,
 		"no-progress", StartParams.NoProgress, "No shell progress bars.")
 	flag.BoolVar(&StartParams.CpuProfile,
 		"cpu-profile", StartParams.CpuProfile, "Record ./cpu.pprof profile.")
-	flag.IntVar(&StartParams.Workers,
-		"workers", StartParams.Workers, "Number of worker goroutines.")
 	flag.BoolVar(&version,
 		"version", false, "Print version and exit, ignores -quiet.")
 
@@ -90,6 +101,11 @@ func init() {
 
 	if StartParams.Workers < 1 {
 		logFatal("-workers must be a positive number, given: %d", StartParams.Workers)
+	}
+
+	// -gzip
+	if StartParams.Gzip < -1 || StartParams.Gzip > gzip.BestCompression {
+		logFatal("-gzip must be -1 to 9, given: %d", StartParams.Gzip)
 	}
 
 	// -in
@@ -226,6 +242,12 @@ func main() {
 	logVertexDataStats(preStats, postStats)
 	logObjectStats(preStats, postStats)
 	logFileStats(linesParsed, linesWritten)
+
+	if StartParams.IsGzipEnabled() {
+		logInfo(" ")
+		logInfo("Gzip compression enabled with level %d.", StartParams.Gzip)
+		logInfo("Remeber to set 'Content-Encoding: gzip' header if you are hosting this file over HTTP.")
+	}
 
 	logInfo(" ")
 }

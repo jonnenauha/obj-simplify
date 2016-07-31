@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
@@ -30,8 +31,18 @@ func (wr *Writer) WriteFile(path string) (int, error) {
 	return linesWritten, errWrite
 }
 
-func (wr *Writer) WriteTo(w io.Writer) (int, error) {
+func (wr *Writer) WriteTo(writer io.Writer) (int, error) {
 	linesWritten := 0
+
+	w := writer
+	if StartParams.IsGzipEnabled() {
+		wGzip, errGzip := gzip.NewWriterLevel(writer, StartParams.Gzip)
+		if errGzip != nil {
+			return linesWritten, errGzip
+		}
+		defer wGzip.Close()
+		w = wGzip
+	}
 
 	ln := func() {
 		fmt.Fprint(w, "\n")
