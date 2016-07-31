@@ -1,33 +1,37 @@
 # obj-simplify
 
-There are a lot of authoring tools that produce OBJ files. The [spec](http://www.martinreddy.net/gfx/3d/OBJ.spec) is quite simple, but it still leaves a lot of room to export geometry and meshes/material combos that are not always optimal for 3D rendering engines. Artists and the exporters can also omit doing simple cleanup operations that would reduce file sizes, making loading and rendering the model faster.
+There are a lot of authoring tools that produce OBJ files. The [spec](http://www.martinreddy.net/gfx/3d/OBJ.spec) is quite simple, but it still leaves a lot of room to export geometry and meshe/material combos that are not always optimal for 3D rendering engines. Artists and the exporters can also omit doing simple cleanup operations that would reduce file size, making loading and rendering the model faster.
+
+The biggest problem in an average OBJ export is the amount of draw calls that can be reduced trivially, but is rarely done in the authoring tool.
 
 This tool automates the following optimization and simplification steps.
 
 * Merge duplicate vertex `v`, normal `vn` and UV `vt` declarations.
 * Create objects from "multi-material" face groups.
-* Merge object `o` and group `g` face declarations that use the same material into a single mesh.
+* Merge object `o` and group `g` face declarations that use the same material into a single mesh, reducing draw call overhead.
 * Rewrite geometry declarations.
 * Rewrite `o/g` to use absolute indexing and the deduplicated geometry.
 
 This tool can be destructive and contain bugs, it will not let you overwrite the source file. Keep your original files intact. The implementation does not support all the OBJ features out there. It is meant to be used on 3D-models
- `l` and points `p`. If a particular line is not supported by the parser, the tool will exit and print a link to submit an issuem. If you are submitting an issue please attach a file that can reproduce the bug.
+ that declare faces with `f`. All variants of face declarations in the spec are supported. Lines `l` and points `p` are also preserved and the same deduplication logic is applied to them.
+ 
+ If a particular line in the input file is not supported by the parser, the tool will exit and print a link to submit an issue. If you are submitting an issue please attach a file that can reproduce the bug.
 
 ## Merging duplicate geometry
 
-Use `-eplison` to tune vector equality checks, the default is `1e-6`. This can have a positive impact especially on large OBJ files. Basic cleanup like trimming trailing zeros and converting -0 into 0.
+Use `-eplison` to tune vector equality checks, the default is `1e-6`. This can have a positive impact especially on large OBJ files. Basic cleanup like trimming trailing zeros and converting -0 into 0 to reduce file size is also executed.
 
 ## Object merging and multi-materials
 
 If your 3D-application needs to interact with all of the submeshes in the model, you should not use this tool. For example an avatar model that has the same material in both gloves and your app wants to know e.g. which glove the user clicked on. This tool will merge both of the gloves face declarations to a single submesh to reduce draw calls. The visuals are the same, but the structure of the model can change.
 
-Multi-materials is another problem I wanted to tackle. These are OBJ files that set `material_1`, declare a few faces, set `material_2`, declare a few faces, rinse and repeat. This can produce huge files that have hundreds, thousands or tens of thousands meshes with small triangle counts, that all reference the same few materials. Most rendering engines will happily do 10k draw calls if you don't do optimizations/batching in your application code. This tool will merge all these triangles to a single draw call per material.
+Multi-materials inside a single `o/g` declaration is another problem this tool tackles. These are OBJ files that set `material_1`, declare a few faces, set `material_2`, declare a few faces, rinse and repeat. This can produce huge files that have hundreds, thousands or tens of thousands meshes with small triangle counts, that all reference the same few materials. Most rendering engines will happily do those 10k draw calls if you don't do optimizations/merging in your application code after loading the model. This tool will merge all these triangles to a single draw call per material.
 
 ## Rewrites
 
 All found geometry from the source file is written at the top of the file, skipping any detected duplicates. Objects/groups are rewritten next so that they reference the deduplicated geometry indexes and are ordered per material.
 
-## Configuration
+## Command line options
 
 There are command line flags for configuration and disabling processing steps, see `-h` for help.
 
