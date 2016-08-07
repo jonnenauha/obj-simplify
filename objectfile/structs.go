@@ -350,6 +350,9 @@ func ParseFaceVertexData(str string, strict bool) (vt *VertexData, err error) {
 	for iMain, part := range strings.Split(str, " ") {
 		dest := vt.Index(iMain)
 		if dest == nil {
+			if strict {
+				return nil, fmt.Errorf("Invalid face index %d in %s", iMain, str)
+			}
 			break
 		}
 		for iPart, datapart := range strings.Split(part, "/") {
@@ -467,7 +470,6 @@ func (f *VertexData) Index(index int) *Declaration {
 		}
 		return f.D
 	default:
-		fmt.Printf("VertexData.Data: Invalid index %d\n", index)
 		return nil
 	}
 }
