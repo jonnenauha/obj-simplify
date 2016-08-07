@@ -247,7 +247,7 @@ func (o *Object) ReadVertexData(t Type, value string, strict bool) (*VertexData,
 	// declared geometry. Convert relative values to absolute.
 	geomStats := o.parent.Geometry.Stats()
 
-	for _, decl := range vt.Declarations() {
+	for _, decl := range vt.Declarations {
 
 		if decl.Vertex != 0 {
 			if decl.Vertex < 0 {
@@ -411,7 +411,7 @@ func ParseListVertexData(t Type, str string, strict bool) (*VertexData, error) {
 				break
 			}
 		}
-		vt.Points = append(vt.Points, decl)
+		vt.Declarations = append(vt.Declarations, decl)
 	}
 	return vt, nil
 }
@@ -419,16 +419,8 @@ func ParseListVertexData(t Type, str string, strict bool) (*VertexData, error) {
 // VertexData
 // @todo Make face, line etc. separate objects with VertexData being an interface
 type VertexData struct {
-	Type Type
-
-	// Face
-	A *Declaration
-	B *Declaration
-	C *Declaration
-	D *Declaration
-
-	// Line/Point
-	Points []*Declaration
+	Type         Type
+	Declarations []*Declaration
 
 	meta map[Type]string
 }
@@ -448,49 +440,13 @@ func (f *VertexData) Meta(t Type) string {
 }
 
 func (f *VertexData) Index(index int) *Declaration {
-	switch index {
-	case 0:
-		if f.A == nil {
-			f.A = &Declaration{}
+	if index >= 0 && index <= 3 {
+		for index >= len(f.Declarations) {
+			f.Declarations = append(f.Declarations, &Declaration{})
 		}
-		return f.A
-	case 1:
-		if f.B == nil {
-			f.B = &Declaration{}
-		}
-		return f.B
-	case 2:
-		if f.C == nil {
-			f.C = &Declaration{}
-		}
-		return f.C
-	case 3:
-		if f.D == nil {
-			f.D = &Declaration{}
-		}
-		return f.D
-	default:
-		return nil
-	}
-}
-
-func (vt *VertexData) Declarations() []*Declaration {
-	switch vt.Type {
-	case Face:
-		return vt.Face()
-	case Line, Point:
-		return vt.Points
+		return f.Declarations[index]
 	}
 	return nil
-}
-
-func (vt *VertexData) Face() (out []*Declaration) {
-	for _, fd := range []*Declaration{vt.A, vt.B, vt.C, vt.D} {
-		if fd != nil {
-			out = append(out, fd)
-		}
-	}
-	return out
 }
 
 func (vt *VertexData) String() (out string) {
@@ -500,7 +456,7 @@ func (vt *VertexData) String() (out string) {
 	case Line, Point:
 		hasUVs := false
 		if vt.Type == Line {
-			for _, decl := range vt.Points {
+			for _, decl := range vt.Declarations {
 				if decl.Index(UV) != 0 {
 					hasUVs = true
 					break
@@ -508,7 +464,7 @@ func (vt *VertexData) String() (out string) {
 			}
 		}
 		var prev *Declaration
-		for di, decl := range vt.Points {
+		for di, decl := range vt.Declarations {
 			// remove consecutive duplicate points eg. "l 1 1 2 2 3 4 4"
 			if prev != nil && prev.Equals(decl) {
 				continue
@@ -531,8 +487,7 @@ func (vt *VertexData) String() (out string) {
 
 		// always use ptr refs if available.
 		// this enables simple index rewrites.
-		decls := vt.Face()
-		for _, decl := range decls {
+		for _, decl := range vt.Declarations {
 			if !hasUVs {
 				hasUVs = decl.Index(UV) != 0
 			}
@@ -543,7 +498,7 @@ func (vt *VertexData) String() (out string) {
 				break
 			}
 		}
-		for di, decl := range decls {
+		for di, decl := range vt.Declarations {
 			if di > 0 {
 				out += " "
 			}

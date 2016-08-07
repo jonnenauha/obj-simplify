@@ -36,7 +36,7 @@ type replacer struct {
 	ref           *objectfile.GeometryValue
 	replaces      map[int]*objectfile.GeometryValue
 	replacesSlice []*objectfile.GeometryValue
-	replacesDirty bool
+	dirty         bool
 	hasItems      bool
 }
 
@@ -57,8 +57,8 @@ func (r *replacer) NumReplaces() int {
 
 func (r *replacer) Replaces() []*objectfile.GeometryValue {
 	// optimization to avoid huge map iters
-	if r.replacesDirty {
-		r.replacesDirty = false
+	if r.dirty {
+		r.dirty = false
 
 		if r.replaces != nil {
 			r.replacesSlice = make([]*objectfile.GeometryValue, len(r.replaces), len(r.replaces))
@@ -79,7 +79,7 @@ func (r *replacer) Remove(index int) {
 		return
 	}
 	if _, found := r.replaces[index]; found {
-		r.replacesDirty = true
+		r.dirty = true
 		delete(r.replaces, index)
 		r.hasItems = len(r.replaces) > 0
 	}
@@ -93,7 +93,7 @@ func (r *replacer) Hit(ref *objectfile.GeometryValue) {
 	if r.replaces == nil {
 		r.replaces = make(map[int]*objectfile.GeometryValue)
 	}
-	r.replacesDirty = true
+	r.dirty = true
 	r.hasItems = true
 	r.replaces[ref.Index] = ref
 }
@@ -467,7 +467,7 @@ func replaceDuplicates(t objectfile.Type, obj *objectfile.OBJ, replacements repl
 			if vt.Type != objectfile.Face && vt.Type != objectfile.Line && vt.Type != objectfile.Point {
 				logFatal("Unsupported vertex data type %q for replacing duplicates\n\nPlease submit a bug report. If you can, provide this file as an attachement.\n> %s\n", vt.Type, ApplicationURL+"/issues")
 			}
-			for _, decl := range vt.Declarations() {
+			for _, decl := range vt.Declarations {
 				switch t {
 				case objectfile.Vertex:
 					if ref := indexToRef[decl.Vertex]; ref != nil {
