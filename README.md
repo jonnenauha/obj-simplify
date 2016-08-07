@@ -23,7 +23,7 @@ Use `-eplison` to tune vector equality checks, the default is `1e-6`. This can h
 
 ## Object merging and multi-materials
 
-If your 3D-application needs to interact with all of the submeshes in the model, you should not use this tool. For example an avatar model that has the same material in both gloves and your app wants to know e.g. which glove the user clicked on. This tool will merge both of the gloves face declarations to a single submesh to reduce draw calls. The visuals are the same, but the structure of the model can change.
+If your 3D-application needs to interact with multiple submeshes (`o/g`) in the model with the same material, you should not use this tool. For example an avatar model that has the same material in both gloves and your app wants to know e.g. which glove the user clicked on. This tool will merge both of the gloves face declarations to a single submesh to reduce draw calls. The visuals are the same, but the structure of the model from the code point of view can change.
 
 Multi-materials inside a single `o/g` declaration is another problem this tool tackles. These are OBJ files that set `material_1`, declare a few faces, set `material_2`, declare a few faces, rinse and repeat. This can produce huge files that have hundreds, thousands or tens of thousands meshes with small triangle counts, that all reference the same few materials. Most rendering engines will happily do those 10k draw calls if you don't do optimizations/merging in your application code after loading the model. This tool will merge all these triangles to a single draw call per material.
 
@@ -36,13 +36,13 @@ All found geometry from the source file is written at the top of the file, skipp
 I have contributed to the OBJ parser/loader in three.js and know it very well. I know what kind of files it has performance problems with and how to try to avoid them. I have also implemented some of the optimization done in this tool in JS on the client side, after the model has been loaded. But even if doable, its a waste of time to do them on each load for each user. Also certain optimizations can not be done on the client side.  That being said there is nothing spesific in the tool for three.js, it can help as much in other rendering engines. This tool can help you get:
 
 * Faster load over the network
- * Reduce filesize, possibly better compression e.g. with gzip (see `-gzip`)
+ * Reduce filesize, possibly better compression e.g. with gzip (see `-gzip`).
 * Faster loading by the parser 
- * Drop duplicates, reduce files size in general to parse less lines
+ * Drop duplicates, reduce files size in general to parse less lines.
  * Arraging file output in a way that *might* benefit V8 etc. to optimize the execution better.
 * Faster rendering 
- * Remove patterns that result in using `THREE.MultiMaterial`
- * Recude draw calls
+ * Remove patterns that result in using `THREE.MultiMaterial`.
+ * Reduce draw calls.
 
 ## Command line options
 
