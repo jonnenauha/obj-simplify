@@ -17,21 +17,6 @@ This tool can be destructive and contain bugs, it will not let you overwrite the
  
  If a particular line in the input file is not supported by the parser, the tool will exit and print a link to submit an issue. If you are submitting an issue please attach a file that can reproduce the bug.
 
-## Quickstart
-
-After [installing go](https://golang.org/doc/install) (verify with `go version`, and don't forget the PATH steps), install and run this tool:
-
-```bash
-# Install
-go get github.com/jonnenauha/obj-simplify
-
-# Run
-obj-simplify -in <input-file> -out <output-file>
-
-# Help
-obj-simplify -h
-```
-
 ## Merging duplicate geometry
 
 Use `-eplison` to tune vector equality checks, the default is `1e-6`. This can have a positive impact especially on large OBJ files. Basic cleanup like trimming trailing zeros and converting -0 into 0 to reduce file size is also executed.
@@ -58,6 +43,24 @@ I have contributed to the OBJ parser/loader in three.js and know it very well. I
 * Faster rendering 
  * Remove patterns that result in using `THREE.MultiMaterial`.
  * Reduce draw calls.
+
+## Dev quickstart
+
+* [Install go](https://golang.org/doc/install)
+* Verify with `go version` that the tools are in your PATH
+
+```bash
+# Install
+go get github.com/jonnenauha/obj-simplify
+
+# Run
+cd $GOPATH/src/github.com/jonnenauha/obj-simplify # or just run where you are if you have $GOPATH/bin in your PATH
+obj-simplify -in <input-file> -out <output-file>
+obj-simplify -h # for full help
+
+# Modify source code and
+go build
+```
 
 ## Command line options
 
