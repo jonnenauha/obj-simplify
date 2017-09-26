@@ -13,7 +13,7 @@ for goos in linux darwin windows ; do
     for goarch in amd64 386; do
         # path
         outdir="bin/$goos/$goarch"
-        path="$outdir/obj-simlify"
+        path="$outdir/obj-simplify"
         if [ $goos = windows ] ; then
             path=$path.exe
         fi
@@ -36,7 +36,7 @@ go env > .goenv
 source .goenv
 rm .goenv
 
-echo -e "\nRelease done: $(./bin/$GOOS/$GOARCH/obj-simlify --version)"
+echo -e "\nRelease done: $(./bin/$GOOS/$GOARCH/obj-simplify --version)"
 for goos in linux darwin windows ; do
     for goarch in amd64 386; do
         path=bin/release/$goos-$goarch.tar.gz
