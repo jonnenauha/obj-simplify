@@ -113,7 +113,7 @@ func (r *replacer) Merge(other *replacer) {
 		if r.hasItems && r.replaces[value.Index] != nil {
 			// straight up duplicate
 			other.Remove(value.Index)
-		} else if r.ref.Equals(value, StartParams.Eplison) {
+		} else if r.ref.Equals(value, StartParams.Epsilon) {
 			// move equals hit to r from other
 			r.Hit(value)
 			other.Remove(value.Index)
@@ -167,7 +167,7 @@ func (processor Duplicates) Execute(obj *objectfile.OBJ) error {
 		mResults        = sync.RWMutex{}
 		wg              = &sync.WaitGroup{}
 		preStats        = obj.Geometry.Stats()
-		epsilon         = StartParams.Eplison
+		epsilon         = StartParams.Epsilon
 		progressEnabled = !StartParams.NoProgress
 	)
 
@@ -369,7 +369,7 @@ func findDuplicates(t objectfile.Type, slice []*objectfile.GeometryValue, epsilo
 				// r1 geom value equals r2.
 				// only merge r2 hits where value equals r1, otherwise
 				// we would do transitive merges which is not what we want:
-				// eg. r1 closer than eplison to r2, but r1 further than epsilon to r2.hitN
+				// eg. r1 closer than epsilon to r2, but r1 further than epsilon to r2.hitN
 				r1.Merge(r2)
 				// r1 might now be empty if r2 was its only hit,
 				// and it was not completely merged.

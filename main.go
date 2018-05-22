@@ -17,7 +17,7 @@ import (
 var (
 	StartParams = startParams{
 		Gzip:    -1,
-		Eplison: 1e-6,
+		Epsilon: 1e-6,
 	}
 
 	ApplicationName = "obj-simplify"
@@ -38,7 +38,7 @@ type startParams struct {
 
 	Workers int
 	Gzip    int
-	Eplison float64
+	Epsilon float64
 
 	Strict     bool
 	Stdout     bool
@@ -68,8 +68,8 @@ func init() {
 		"workers", StartParams.Workers, "Number of worker goroutines.")
 	flag.IntVar(&StartParams.Gzip,
 		"gzip", StartParams.Gzip, "Gzip compression level on the output for both -stdout and -out. <=0 disables compression, use 1 (best speed) to 9 (best compression) to enable.")
-	flag.Float64Var(&StartParams.Eplison,
-		"epsilon", StartParams.Eplison, "Epsilon for float comparisons.")
+	flag.Float64Var(&StartParams.Epsilon,
+		"epsilon", StartParams.Epsilon, "Epsilon for float comparisons.")
 
 	flag.BoolVar(&StartParams.Strict,
 		"strict", StartParams.Strict, "Errors out on spec violations, otherwise continues if the error is recoverable.")
