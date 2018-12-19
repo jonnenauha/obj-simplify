@@ -193,6 +193,10 @@ func wrapErrorLine(err error, linenum int) error {
 
 func parseLineType(str string) (objectfile.Type, string) {
 	value := ""
+	// comments, unlike other tokens, might not have a space after #
+	if str[0] == '#' {
+		return objectfile.Comment, strings.TrimSpace(str[1:])
+	}
 	if i := strings.Index(str, " "); i != -1 {
 		value = strings.TrimSpace(str[i+1:])
 		str = str[0:i]
